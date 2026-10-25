@@ -373,7 +373,7 @@ class GlassCard extends StatelessWidget {
   }
 }
 
-/// Cyberpunk Dark Matrix background with subtle neon grid/glow
+/// Cyberpunk Dark Matrix background with ambient neon glowing atmospheric orbs
 class MidnightBackground extends StatelessWidget {
   const MidnightBackground({required this.child, super.key});
 
@@ -381,20 +381,95 @@ class MidnightBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.bgTop,
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            AppColors.bgTop,
-            AppColors.bgMid,
-            AppColors.bgBottom,
-          ],
+    return Stack(
+      children: <Widget>[
+        // Base dark obsidian background
+        Container(
+          decoration: const BoxDecoration(
+            color: AppColors.bgTop,
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                AppColors.bgTop,
+                AppColors.bgMid,
+                AppColors.bgBottom,
+              ],
+            ),
+          ),
         ),
-      ),
-      child: child,
+
+        // Ambient Neon Cyan Orb (Top-Left)
+        Positioned(
+          top: -100,
+          left: -80,
+          width: 380,
+          height: 380,
+          child: IgnorePointer(
+            child: Container(
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    Color(0x3800F0FF),
+                    Color(0x1400F0FF),
+                    Colors.transparent,
+                  ],
+                  stops: [0.0, 0.45, 1.0],
+                ),
+              ),
+            ),
+          ),
+        ),
+
+        // Ambient Neon Violet / Magenta Orb (Mid-Right)
+        Positioned(
+          top: 260,
+          right: -100,
+          width: 420,
+          height: 420,
+          child: IgnorePointer(
+            child: Container(
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    Color(0x309D00FF),
+                    Color(0x12FF0055),
+                    Colors.transparent,
+                  ],
+                  stops: [0.0, 0.5, 1.0],
+                ),
+              ),
+            ),
+          ),
+        ),
+
+        // Ambient Mint Glow (Bottom-Left)
+        Positioned(
+          bottom: 40,
+          left: -80,
+          width: 320,
+          height: 320,
+          child: IgnorePointer(
+            child: Container(
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    Color(0x2200F0FF),
+                    Colors.transparent,
+                  ],
+                  stops: [0.0, 1.0],
+                ),
+              ),
+            ),
+          ),
+        ),
+
+        // Foreground app content
+        Positioned.fill(child: child),
+      ],
     );
   }
 }

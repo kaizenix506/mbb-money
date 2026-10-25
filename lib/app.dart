@@ -62,8 +62,25 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int _index = 0;
+  late final PageController _pageController = PageController(initialPage: _index);
 
   static const List<String> _titles = <String>['Tổng quan', 'Giao dịch', 'Báo cáo'];
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _onNavTap(int i) {
+    if (_index == i) return;
+    setState(() => _index = i);
+    _pageController.animateToPage(
+      i,
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOutCubic,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -71,7 +88,7 @@ class _AppShellState extends State<AppShell> {
 
     final List<Widget> pages = <Widget>[
       OverviewPage(
-        onOpenAll: () => setState(() => _index = 1),
+        onOpenAll: () => _onNavTap(1),
         onAdd: () => AddTransactionSheet.show(context),
       ),
       const TransactionsPage(),
@@ -85,29 +102,15 @@ class _AppShellState extends State<AppShell> {
         children: <Widget>[
           Positioned.fill(
             child: MidnightBackground(
-              // TapRegion: a tap that lands outside any text field closes the
-              // keyboard — the behaviour Hoàng expected when tapping empty
-              // space. It is a TapRegion rather than a GestureDetector so it
-              // never swallows taps meant for buttons.
+              // TapRegion: tapping outside any text field closes the keyboard
               child: TapRegion(
                 onTapOutside: (PointerDownEvent _) =>
                     FocusManager.instance.primaryFocus?.unfocus(),
-                child: GestureDetector(
-                  // Horizontal swipe switches tabs — left→right goes back a tab,
-                  // right→left advances, matching the iOS back/forward feel.
-                  behavior: HitTestBehavior.translucent,
-                  onHorizontalDragEnd: (DragEndDetails d) {
-                    final double v = d.primaryVelocity ?? 0;
-                    if (v.abs() < 260) return;
-                    setState(() {
-                      if (v > 0 && _index > 0) {
-                        _index--;
-                      } else if (v < 0 && _index < pages.length - 1) {
-                        _index++;
-                      }
-                    });
-                  },
-                  child: IndexedStack(index: _index, children: pages),
+                child: PageView(
+                  controller: _pageController,
+                  physics: const BouncingScrollPhysics(),
+                  onPageChanged: (int i) => setState(() => _index = i),
+                  children: pages,
                 ),
               ),
             ),
@@ -128,7 +131,7 @@ class _AppShellState extends State<AppShell> {
       bottomNavigationBar: GlassNavBar(
         index: _index,
         titles: _titles,
-        onChanged: (int i) => setState(() => _index = i),
+        onChanged: _onNavTap,
         onAdd: () => AddTransactionSheet.show(context),
       ),
     );

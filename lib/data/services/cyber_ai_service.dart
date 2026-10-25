@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -99,44 +100,39 @@ class CyberAiService with ChangeNotifier {
 
     final Stopwatch sw = Stopwatch()..start();
 
-    // 1) Local parser first — instant, offline, deterministic.
-    ExtractedExpense? extracted = SmartParser.parse(
-      trimmed,
-      knownCategories: _knownCategoryLabels(currentExpenses),
-    );
+    // 1) Ask Gemini first if key available so Hoàng gets real AI intelligence!
+    String? geminiKey;
+    try {
+      geminiKey = await _secrets.readGeminiApiKey();
+    } catch (_) {}
 
-    // 2) Cache hit for an identical phrase.
-    if (extracted == null) {
-      final String key = _cacheKey(trimmed);
-      final ExtractedExpense? hit = _cache[key];
-      if (hit != null && (hit.date == null ||
-          VnClock.sameDay(hit.date!, VnClock.now()))) {
-        extracted = ExtractedExpense(
-          amount: hit.amount,
-          description: hit.description,
-          category: hit.category,
-          categoryName: hit.categoryName,
-          date: VnClock.now(),
-          confidence: hit.confidence,
-        );
-      }
-    }
+    ExtractedExpense? extracted;
+    String reply = '';
 
-    String reply;
-    if (extracted != null) {
-      reply = _confirmReply(extracted);
-    } else {
-      // 3) Ask Gemini, racing models.
+    if (geminiKey != null && geminiKey.isNotEmpty) {
       try {
-        final String key = await _secrets.readGeminiApiKey();
-        final result = await _askGemini(key, trimmed, currentExpenses);
+        final result = await _askGemini(geminiKey, trimmed, currentExpenses);
         reply = result.reply;
         extracted = result.expense;
         if (extracted != null) {
           _cache[_cacheKey(trimmed)] = extracted;
         }
       } catch (err) {
-        debugPrint('A.R.I.A network fallback: $err');
+        debugPrint('Gemini call error, using local fallback: $err');
+      }
+    }
+
+    // 2) If Gemini did not reply (offline or failed), use deterministic local SmartParser!
+    if (reply.isEmpty) {
+      extracted = SmartParser.parse(
+        trimmed,
+        knownCategories: _knownCategoryLabels(currentExpenses),
+        allowFallback: true,
+      );
+
+      if (extracted != null) {
+        reply = _confirmReply(extracted);
+      } else {
         reply = _fallbackSummary(currentExpenses);
       }
     }
@@ -244,27 +240,34 @@ $ctx
     const List<String> models = <String>[
       'gemini-2.5-flash-lite',
       'gemini-2.5-flash',
-      'gemini-2.0-flash-lite',
-      'gemini-1.5-flash',
+      'gemini-flash-latest',
+      'gemini-3-flash-preview',
     ];
 
     final http.Client client = http.Client();
     try {
-      final List<Future<http.Response?>> race = <Future<http.Response?>>[
-        for (final String m in models.take(2)) _tryModel(client, apiKey, m, payload),
-      ];
+      final Completer<http.Response> completer = Completer<http.Response>();
+      final List<String> candidates = models.take(2).toList();
+      int settledCount = 0;
 
-      http.Response? ok;
-      final List<http.Response?> settled = await Future.wait(race);
-      for (final http.Response? r in settled) {
-        if (r != null && r.statusCode == 200) {
-          ok = r;
-          break;
-        }
+      for (final String m in candidates) {
+        _tryModel(client, apiKey, m, payload).then((http.Response? r) {
+          if (r != null && r.statusCode == 200 && !completer.isCompleted) {
+            completer.complete(r);
+          }
+        }).catchError((_) {}).whenComplete(() {
+          settledCount++;
+          if (settledCount == candidates.length && !completer.isCompleted) {
+            completer.completeError('Primary models did not respond with 200');
+          }
+        });
       }
 
-      // Sequential retry for the slower fallbacks only if the race failed.
-      if (ok == null) {
+      http.Response? ok;
+      try {
+        ok = await completer.future.timeout(const Duration(seconds: 8));
+      } catch (_) {
+        // Sequential fallback only if the fast race timed out or failed.
         for (final String m in models.skip(2)) {
           final http.Response? r = await _tryModel(client, apiKey, m, payload);
           if (r != null && r.statusCode == 200) {
@@ -281,12 +284,17 @@ $ctx
       final String raw = _textOf(decoded);
       final Map<String, Object?>? parsed = _jsonObject(raw);
       if (parsed == null) {
-        return (reply: raw.trim(), expense: null);
+        return (reply: raw.trim().isEmpty ? 'A.R.I.A đã nhận được thông tin!' : raw.trim(), expense: null);
       }
 
-      final String reply = (parsed['reply'] ?? parsed['message'] ?? '')
-              .toString()
-              .trim();
+      final String reply = (parsed['reply'] ??
+              parsed['message'] ??
+              parsed['response'] ??
+              parsed['text'] ??
+              parsed['answer'] ??
+              '')
+          .toString()
+          .trim();
       final String action = (parsed['action'] ?? '').toString();
       final num? amount = parsed['amount'] is num
           ? parsed['amount'] as num
@@ -315,7 +323,7 @@ $ctx
       }
 
       return (
-        reply: reply.isEmpty ? 'Đã xử lý xong cho Hoàng!' : reply,
+        reply: reply.isEmpty ? (raw.trim().isNotEmpty ? raw.trim() : 'Đã xử lý xong cho Hoàng!') : reply,
         expense: null,
       );
     } finally {
@@ -332,7 +340,7 @@ $ctx
     try {
       final Uri uri = Uri.parse(
         'https://generativelanguage.googleapis.com/v1beta/models/'
-        '$model:generateContent',
+        '$model:generateContent?key=$apiKey',
       );
       final http.Response r = await client
           .post(

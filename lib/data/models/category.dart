@@ -13,6 +13,12 @@ enum Category {
     icon: Icons.restaurant_rounded,
     tint: Color(0xFFFFB066),
   ),
+  drink(
+    id: 'drink',
+    label: 'Đồ uống',
+    icon: Icons.local_drink_rounded,
+    tint: Color(0xFF00F0FF),
+  ),
   coffee(
     id: 'coffee',
     label: 'Cà phê',
@@ -47,13 +53,19 @@ enum Category {
     id: 'entertainment',
     label: 'Giải trí',
     icon: Icons.sports_esports_rounded,
-    tint: Color(0x24B48CFF),
+    tint: Color(0xFFFFE600),
   ),
   education(
     id: 'education',
     label: 'Giáo dục',
     icon: Icons.menu_book_rounded,
-    tint: Color(0xFF78E0C9),
+    tint: Color(0xFF39FF14),
+  ),
+  family(
+    id: 'family',
+    label: 'Gia đình',
+    icon: Icons.family_restroom_rounded,
+    tint: Color(0xFFFF77A9),
   ),
   salary(
     id: 'salary',

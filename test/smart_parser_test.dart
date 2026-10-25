@@ -45,6 +45,30 @@ void main() {
       expect(SmartParser.parse('mua sách 120k')?.category, 'education');
     });
 
+    test('cắt tóc 50k → Sức khỏe', () {
+      final e = SmartParser.parse('cắt tóc 50k');
+      expect(e?.amount, 50000);
+      expect(e?.category, 'health');
+    });
+
+    test('mua áo 200k → Mua sắm', () {
+      final e = SmartParser.parse('mua áo 200k');
+      expect(e?.amount, 200000);
+      expect(e?.category, 'shopping');
+    });
+
+    test('tiền điện 500k → Hóa đơn', () {
+      final e = SmartParser.parse('tiền điện 500k');
+      expect(e?.amount, 500000);
+      expect(e?.category, 'bills');
+    });
+
+    test('uống bia 100k → Đồ uống', () {
+      final e = SmartParser.parse('uống bia 100k');
+      expect(e?.amount, 100000);
+      expect(e?.category, 'drink');
+    });
+
     test('bare number under 1000 is read as nghìn', () {
       expect(SmartParser.parse('ăn trưa 20')?.amount, 20000);
     });

@@ -151,35 +151,72 @@ class _LiquidNavTab extends StatelessWidget {
   }
 }
 
-/// Center AI Trigger Button
-class _CenterAiButton extends StatelessWidget {
+/// Center AI Trigger Button with animated breathing neon pulse
+class _CenterAiButton extends StatefulWidget {
   const _CenterAiButton({required this.onTap});
   final VoidCallback onTap;
 
   @override
+  State<_CenterAiButton> createState() => _CenterAiButtonState();
+}
+
+class _CenterAiButtonState extends State<_CenterAiButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _anim = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1800),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _anim.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 50,
-        height: 50,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: const RadialGradient(
-            colors: [Color(0xFFB52BFF), Color(0xFF6B00D7)],
-          ),
-          border: Border.all(color: const Color(0xFFE580FF), width: 1.8),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF9D00FF).withValues(alpha: 0.6),
-              blurRadius: 18,
-              spreadRadius: 2,
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (BuildContext context, Widget? child) {
+        final double pulse = _anim.value;
+        return GestureDetector(
+          onTap: widget.onTap,
+          child: Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: const RadialGradient(
+                colors: [Color(0xFFB52BFF), Color(0xFF6B00D7)],
+              ),
+              border: Border.all(
+                color: Color.lerp(
+                  const Color(0xFFE580FF),
+                  AppColors.neonCyan,
+                  pulse * 0.5,
+                )!,
+                width: 1.8,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF9D00FF)
+                      .withValues(alpha: 0.4 + pulse * 0.4),
+                  blurRadius: 14 + pulse * 12,
+                  spreadRadius: 1 + pulse * 2.5,
+                ),
+                BoxShadow(
+                  color: AppColors.neonCyan
+                      .withValues(alpha: 0.15 + pulse * 0.2),
+                  blurRadius: 8 + pulse * 6,
+                ),
+              ],
             ),
-          ],
-        ),
-        child: const Center(
-          child: Icon(Icons.psychology, size: 28, color: Colors.white),
-        ),
+            child: child,
+          ),
+        );
+      },
+      child: const Center(
+        child: Icon(Icons.psychology, size: 28, color: Colors.white),
       ),
     );
   }

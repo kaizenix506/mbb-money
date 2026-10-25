@@ -5,6 +5,7 @@ import 'dart:convert';
 /// Mapping of supported category icons using const IconData to keep tree-shaking 100% happy!
 const Map<String, IconData> categoryIconMap = {
   'food': Icons.restaurant_rounded,
+  'drink': Icons.local_drink_rounded,
   'coffee': Icons.local_cafe_rounded,
   'transport': Icons.directions_car_filled_rounded,
   'shopping': Icons.shopping_bag_rounded,
@@ -12,6 +13,7 @@ const Map<String, IconData> categoryIconMap = {
   'health': Icons.favorite_rounded,
   'entertainment': Icons.sports_esports_rounded,
   'education': Icons.menu_book_rounded,
+  'family': Icons.family_restroom_rounded,
   'other': Icons.more_horiz_rounded,
   'flight': Icons.flight_takeoff_rounded,
   'pet': Icons.pets_rounded,
@@ -63,7 +65,7 @@ class CategoryStore extends ChangeNotifier {
     _loadFromPrefs();
   }
 
-  static const String _prefsKey = 'mbb.custom_categories.v3';
+  static const String _prefsKey = 'mbb.custom_categories.v4';
   static const String _kFallbackId = 'other';
 
   /// Default rich preset categories.
@@ -75,10 +77,16 @@ class CategoryStore extends ChangeNotifier {
       colorValue: 0xFFFFB066,
     ),
     const CategoryItem(
+      id: 'drink',
+      label: 'Đồ uống',
+      iconKey: 'drink',
+      colorValue: 0xFF00F0FF,
+    ),
+    const CategoryItem(
       id: 'coffee',
       label: 'Cà phê',
       iconKey: 'coffee',
-      colorValue: 0xFF00F0FF,
+      colorValue: 0xFFE0A46A,
     ),
     const CategoryItem(
       id: 'transport',
@@ -115,6 +123,12 @@ class CategoryStore extends ChangeNotifier {
       label: 'Giáo dục',
       iconKey: 'education',
       colorValue: 0xFF39FF14,
+    ),
+    const CategoryItem(
+      id: 'family',
+      label: 'Gia đình',
+      iconKey: 'family',
+      colorValue: 0xFFFF77A9,
     ),
     const CategoryItem(
       id: 'other',

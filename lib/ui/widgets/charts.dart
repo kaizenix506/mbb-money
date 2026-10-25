@@ -207,7 +207,7 @@ class _DonutPainter extends CustomPainter {
     final double radius = (math.min(size.width, size.height) - stroke) / 2;
     final Rect rect = Rect.fromCircle(center: center, radius: radius);
 
-    // Track
+    // Track: sleek dark background track with glowing border
     canvas.drawArc(
       rect,
       0,
@@ -216,7 +216,7 @@ class _DonutPainter extends CustomPainter {
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = stroke
-        ..color = Colors.white.withValues(alpha: 0.05),
+        ..color = const Color(0x1A00F0FF),
     );
 
     final int total =
@@ -226,16 +226,40 @@ class _DonutPainter extends CustomPainter {
     double start = -math.pi / 2;
     const double gap = 0.045;
 
+    // Pass 1: Ambient Neon Glow (behind the sharp arc)
+    double glowStart = start;
     for (final DonutSlice s in slices) {
       final double sweep = (s.value / total) * math.pi * 2 * progress;
       if (sweep <= 0) continue;
-      final Paint p = Paint()
+      final Paint glowPaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = stroke + 5
+        ..strokeCap = StrokeCap.round
+        ..color = s.color.withValues(alpha: 0.45)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+      canvas.drawArc(rect, glowStart + gap / 2, math.max(sweep - gap, 0.01), false, glowPaint);
+      glowStart += sweep;
+    }
+
+    // Pass 2: Solid, razor-sharp vivid core arc (NO blur, 100% crisp)
+    for (final DonutSlice s in slices) {
+      final double sweep = (s.value / total) * math.pi * 2 * progress;
+      if (sweep <= 0) continue;
+      final Paint solidPaint = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = stroke
         ..strokeCap = StrokeCap.round
-        ..color = s.color
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
-      canvas.drawArc(rect, start + gap / 2, math.max(sweep - gap, 0.01), false, p);
+        ..color = s.color;
+      canvas.drawArc(rect, start + gap / 2, math.max(sweep - gap, 0.01), false, solidPaint);
+
+      // Pass 3: Specular glassy reflection along the ridge (laser neon effect)
+      final Paint highlightPaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.2
+        ..strokeCap = StrokeCap.round
+        ..color = Colors.white.withValues(alpha: 0.45);
+      canvas.drawArc(rect, start + gap / 2, math.max(sweep - gap, 0.01), false, highlightPaint);
+
       start += sweep;
     }
   }
