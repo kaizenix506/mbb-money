@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <base href="$FLUTTER_BASE_HREF">
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="description" content="MBB Money — sổ thu chi tự động đọc biến động số dư MB Bank.">
+  <meta name="theme-color" content="#0B0D12">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="MBB Money">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+  <link rel="manifest" href="manifest.json">
+  <title>MBB Money — Sổ thu chi MB Bank</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: #0B0D12;
+      overscroll-behavior: none;
+    }
+    /* Loading state shown before Flutter boots, matching the dark theme so
+       there is no white flash on a phone. */
+    #boot {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(180deg, #0B0D12, #131823 55%, #0A0C11);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      transition: opacity .35s ease;
+    }
+    #boot .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #3DE8B0;
+      box-shadow: 0 0 24px 4px rgba(61,232,176,.5);
+      animation: pulse 1.4s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(.8); opacity: .6; }
+      50%      { transform: scale(1.15); opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <div id="boot"><div class="dot"></div></div>
+  <script src="flutter_bootstrap.js" async></script>
+  <script>
+    window.addEventListener('flutter-first-frame', function () {
+      var boot = document.getElementById('boot');
+      if (!boot) return;
+      boot.style.opacity = '0';
+      setTimeout(function () { boot.remove(); }, 400);
+    });
+  </script>
+</body>
+</html>

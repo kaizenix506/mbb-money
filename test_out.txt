@@ -1,0 +1,36 @@
+00:00 +0: loading C:/Users/Hoang/Documents/Local/test/test/formatters_test.dart
+00:00 +0: C:/Users/Hoang/Documents/Local/test/test/formatters_test.dart: Fmt amount uses dots as thousands separators
+00:00 +1: C:/Users/Hoang/Documents/Local/test/test/formatters_test.dart: Fmt signed uses a typographic minus
+00:00 +2: C:/Users/Hoang/Documents/Local/test/test/formatters_test.dart: Fmt compact abbreviates for narrow stat columns
+00:00 +3: C:/Users/Hoang/Documents/Local/test/test/formatters_test.dart: Fmt previousMonth clamps short months
+00:00 +4: C:/Users/Hoang/Documents/Local/test/test/formatters_test.dart: Fmt daysInMonth handles leap years
+00:00 +5: C:/Users/Hoang/Documents/Local/test/test/formatters_test.dart: AutoCategorizer picks specific merchant rules over generic ones
+00:00 +6: C:/Users/Hoang/Documents/Local/test/test/formatters_test.dart: AutoCategorizer never files an outgoing transfer as salary
+00:00 +7: C:/Users/Hoang/Documents/Local/test/test/formatters_test.dart: AutoCategorizer returns null rather than guessing
+00:00 +8: C:/Users/Hoang/Documents/Local/test/test/formatters_test.dart: Transaction signedAmount respects direction
+00:00 +9: C:/Users/Hoang/Documents/Local/test/test/formatters_test.dart: Transaction round-trips through map
+00:00 +10: C:/Users/Hoang/Documents/Local/test/test/formatters_test.dart: Transaction copyWith can clear a nullable field
+00:00 +11: C:/Users/Hoang/Documents/Local/test/test/formatters_test.dart: Transaction dedupes by reference number
+00:00 +12: C:/Users/Hoang/Documents/Local/test/test/formatters_test.dart: Transaction dedupes by amount and near-identical time without a reference
+00:00 +13: C:/Users/Hoang/Documents/Local/test/test/formatters_test.dart: Transaction does not dedupe different amounts
+00:00 +14: C:/Users/Hoang/Documents/Local/test/test/formatters_test.dart: TxSource maps storage keys defensively
+00:00 +15: C:/Users/Hoang/Documents/Local/test/test/formatters_test.dart: TxSource only bank sources carry the MB badge
+00:00 +16: C:/Users/Hoang/Documents/Local/test/test/mb_bank_parser_test.dart: looksLikeMbNotice accepts a standard balance-change SMS
+00:00 +17: C:/Users/Hoang/Documents/Local/test/test/mb_bank_parser_test.dart: looksLikeMbNotice rejects an OTP message
+00:00 +18: C:/Users/Hoang/Documents/Local/test/test/mb_bank_parser_test.dart: looksLikeMbNotice rejects marketing copy
+00:00 +19: C:/Users/Hoang/Documents/Local/test/test/mb_bank_parser_test.dart: amount and direction parses an inflow with a plus sign
+00:00 +20: C:/Users/Hoang/Documents/Local/test/test/mb_bank_parser_test.dart: amount and direction parses an outflow with a minus sign
+00:00 +21: C:/Users/Hoang/Documents/Local/test/test/mb_bank_parser_test.dart: amount and direction handles dot thousands separators
+00:00 +22: C:/Users/Hoang/Documents/Local/test/test/mb_bank_parser_test.dart: amount and direction handles spaces inside the number
+00:00 +23: C:/Users/Hoang/Documents/Local/test/test/mb_bank_parser_test.dart: amount and direction falls back to direction words when the sign is missing
+00:00 +24: C:/Users/Hoang/Documents/Local/test/test/mb_bank_parser_test.dart: amount and direction throws when there is no amount
+00:00 +25: C:/Users/Hoang/Documents/Local/test/test/mb_bank_parser_test.dart: confidence high confidence for an unambiguous message
+00:00 +26: C:/Users/Hoang/Documents/Local/test/test/mb_bank_parser_test.dart: confidence low confidence when the direction is unknown
+00:00 +27: C:/Users/Hoang/Documents/Local/test/test/mb_bank_parser_test.dart: content extracts ND: content and title-cases shouting
+00:00 +28: C:/Users/Hoang/Documents/Local/test/test/mb_bank_parser_test.dart: content falls back to text after the running balance
+00:00 +29: C:/Users/Hoang/Documents/Local/test/test/mb_bank_parser_test.dart: content uses a neutral label when nothing is parseable
+00:00 +30: C:/Users/Hoang/Documents/Local/test/test/mb_bank_parser_test.dart: dates parses time-first format
+00:00 +31: C:/Users/Hoang/Documents/Local/test/test/mb_bank_parser_test.dart: dates uses the fallback time when the message has no date
+00:00 +32: C:/Users/Hoang/Documents/Local/test/test/mb_bank_parser_test.dart: dates handles two-digit years
+00:00 +33: C:/Users/Hoang/Documents/Local/test/test/mb_bank_parser_test.dart: reference numbers are captured when present
+00:00 +34: All tests passed!

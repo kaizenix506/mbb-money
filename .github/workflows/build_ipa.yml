@@ -1,0 +1,42 @@
+name: Build IPA for ESign
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    name: Build Unsigned IPA for ESign
+    runs-on: macos-14
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build iOS Application (No Codesign)
+        run: |
+          flutter build ios --release --no-codesign
+
+      - name: Package Payload into unsigned .ipa
+        run: |
+          mkdir -p build/ios/iphoneos/Payload
+          cp -r build/ios/iphoneos/Runner.app build/ios/iphoneos/Payload/
+          cd build/ios/iphoneos
+          zip -r -9 MBBMoney_Cyberpunk_ESign.ipa Payload/
+          echo "IPA created successfully at $(pwd)/MBBMoney_Cyberpunk_ESign.ipa"
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MBBMoney_Cyberpunk_ESign_IPA
+          path: build/ios/iphoneos/MBBMoney_Cyberpunk_ESign.ipa
+          retention-days: 14
