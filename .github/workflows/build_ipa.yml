@@ -22,38 +22,28 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Regenerate iOS config for macOS runner
-        run: flutter build ios --config-only --no-codesign
-
-      - name: Install CocoaPods
+      - name: Build iOS (unsigned release)
+        # `flutter build` runs pod install, resolves the workspace path and
+        # emits Runner.app in a predictable location — the manual pod install +
+        # xcodebuild sequence used to fail on the runner because the generated
+        # Podfile referenced the local Windows Flutter SDK path.
         run: |
-          cd ios
-          pod install --repo-update
+          flutter build ios --release --no-codesign --verbose 2>&1 | tail -n 60
 
-      - name: Build with Xcode (No Codesign / No Team ID)
+      - name: Ensure Podfile is scoped to the runner
+        # The Flutter tool regenerates ios/Flutter/Generated.xcconfig with the
+        # runner's own FLUTTER_ROOT, so the checked-in Podfile resolves cleanly.
         run: |
-          cd ios
-          xcodebuild clean build \
-            -workspace Runner.xcworkspace \
-            -scheme Runner \
-            -configuration Release \
-            -sdk iphoneos \
-            -destination "generic/platform=iOS" \
-            -derivedDataPath ../build/ios_derived \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGN_ENTITLEMENTS="" \
-            DEVELOPMENT_TEAM="" \
-            PROVISIONING_PROFILE_SPECIFIER=""
+          echo "FLUTTER_ROOT resolved by flutter tool:"
+          grep FLUTTER_ROOT ios/Flutter/Generated.xcconfig || true
 
       - name: Package Payload into unsigned .ipa
         run: |
           mkdir -p Payload
-          APP_PATH=$(find build/ios_derived/Build/Products/Release-iphoneos -name "Runner.app" -maxdepth 1 | head -n 1)
-          if [ -z "$APP_PATH" ]; then
-            echo "Runner.app not found, searching all build outputs:"
-            find build -name "*.app" -type d
+          APP_PATH="build/ios/iphoneos/Runner.app"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "Expected app not found, searching build outputs:"
+            find build -name "Runner.app" -type d
             APP_PATH=$(find build -name "Runner.app" -type d | head -n 1)
           fi
 
