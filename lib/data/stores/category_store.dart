@@ -56,15 +56,17 @@ class CategoryItem {
       );
 }
 
-/// Global Category Store allowing user to dynamically add, edit, or remove expense categories.
+/// Global Category Store allowing user to dynamically add, edit, or remove
+/// expense categories — including the built-in ones.
 class CategoryStore extends ChangeNotifier {
   CategoryStore() {
     _loadFromPrefs();
   }
 
-  static const String _prefsKey = 'mbb.custom_categories.v2';
+  static const String _prefsKey = 'mbb.custom_categories.v3';
+  static const String _kFallbackId = 'other';
 
-  // Default rich preset categories
+  /// Default rich preset categories.
   static final List<CategoryItem> _defaults = [
     const CategoryItem(
       id: 'food',
@@ -124,23 +126,60 @@ class CategoryStore extends ChangeNotifier {
 
   List<CategoryItem> _categories = List.from(_defaults);
 
+  /// Built-ins are never dropped from this lookup so historical transactions
+  /// still resolve their label after the user deletes the category.
+  final Map<String, CategoryItem> _known = {
+    for (final CategoryItem c in _defaults) c.id: c,
+  };
+
+  /// Categories the user explicitly deleted that ship with the app.
+  final Set<String> _hiddenDefaultIds = <String>{};
+
   List<CategoryItem> get all => List.unmodifiable(_categories);
 
-  CategoryItem findById(String? id) {
-    if (id == null) return _categories.firstWhere((c) => c.id == 'other');
-    return _categories.firstWhere(
-      (c) => c.id == id,
-      orElse: () => _categories.firstWhere((c) => c.id == 'other'),
-    );
+  /// Categories currently available for *new* transactions.
+  List<CategoryItem> get selectable =>
+      _categories.where((CategoryItem c) => c.id != _kFallbackId).toList();
+
+  bool get canDeleteAny => _categories.length > 1;
+
+  CategoryItem get fallback => _known[_kFallbackId] ?? _defaults.last;
+
+  /// Resolves an id for display — including categories the user already
+  /// deleted, so old rows keep their meaning.
+  CategoryItem? resolve(String? id) {
+    if (id == null) return null;
+    for (final CategoryItem c in _categories) {
+      if (c.id == id) return c;
+    }
+    return _known[id];
   }
+
+  CategoryItem findById(String? id) => resolve(id) ?? fallback;
 
   Future<void> _loadFromPrefs() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getString(_prefsKey);
       if (raw != null) {
-        final List list = jsonDecode(raw);
-        _categories = list.map((item) => CategoryItem.fromJson(item as Map<String, dynamic>)).toList();
+        final Map<String, dynamic> decoded = jsonDecode(raw) as Map<String, dynamic>;
+
+        final List<dynamic> list = (decoded['items'] as List<dynamic>?) ?? <dynamic>[];
+        if (list.isNotEmpty) {
+          _categories = list
+              .map((dynamic item) => CategoryItem.fromJson(item as Map<String, dynamic>))
+              .toList();
+        }
+
+        final List<dynamic> hidden =
+            (decoded['hiddenDefaults'] as List<dynamic>?) ?? <dynamic>[];
+        _hiddenDefaultIds
+          ..clear()
+          ..addAll(hidden.map((dynamic e) => e.toString()));
+
+        for (final CategoryItem c in _categories) {
+          _known[c.id] = c;
+        }
         notifyListeners();
       }
     } catch (e) {
@@ -153,30 +192,80 @@ class CategoryStore extends ChangeNotifier {
     required String iconKey,
     required Color color,
   }) async {
-    final newId = 'cat_${DateTime.now().millisecondsSinceEpoch}';
-    final item = CategoryItem(
+    final String newId = 'cat_${DateTime.now().millisecondsSinceEpoch}';
+    final CategoryItem item = CategoryItem(
       id: newId,
       label: label.trim(),
       iconKey: iconKey,
       colorValue: color.value,
       isCustom: true,
     );
-    _categories.insert(_categories.length - 1, item); // Insert before 'other'
+    // Insert before the 'other' bucket so it stays last.
+    final int otherIdx = _categories.indexWhere((CategoryItem c) => c.id == _kFallbackId);
+    if (otherIdx == -1) {
+      _categories.add(item);
+    } else {
+      _categories.insert(otherIdx, item);
+    }
+    _known[newId] = item;
     await _saveToPrefs();
     notifyListeners();
   }
 
-  Future<void> removeCategory(String id) async {
-    if (id == 'other') return; // protect default
-    _categories.removeWhere((c) => c.id == id);
+  Future<void> updateCategory(
+    String id, {
+    required String label,
+    required String iconKey,
+    required Color color,
+  }) async {
+    final int idx = _categories.indexWhere((CategoryItem c) => c.id == id);
+    if (idx == -1) return;
+    final CategoryItem updated = CategoryItem(
+      id: id,
+      label: label.trim(),
+      iconKey: iconKey,
+      colorValue: color.value,
+      isCustom: _categories[idx].isCustom,
+    );
+    _categories[idx] = updated;
+    _known[id] = updated;
     await _saveToPrefs();
     notifyListeners();
   }
+
+  /// Removes a category. The caller is responsible for moving the existing
+  /// transactions to [fallback] first (see TransactionStore).
+  Future<void> removeCategory(String id) async {
+    if (id == _kFallbackId) return; // the fallback bucket is permanent
+    if (_categories.length <= 1) return;
+    _categories.removeWhere((CategoryItem c) => c.id == id);
+    if (!_known.containsKey(id) || _defaults.any((CategoryItem c) => c.id == id)) {
+      _hiddenDefaultIds.add(id);
+    }
+    await _saveToPrefs();
+    notifyListeners();
+  }
+
+  /// Restores a deleted built-in category.
+  Future<void> restoreDefaults() async {
+    _categories = List.from(_defaults);
+    _hiddenDefaultIds.clear();
+    _known
+      ..clear()
+      ..addAll(<String, CategoryItem>{for (final CategoryItem c in _defaults) c.id: c});
+    await _saveToPrefs();
+    notifyListeners();
+  }
+
+  bool get hasDeletedDefaults => _hiddenDefaultIds.isNotEmpty;
 
   Future<void> _saveToPrefs() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final encoded = jsonEncode(_categories.map((c) => c.toJson()).toList());
+      final String encoded = jsonEncode(<String, dynamic>{
+        'items': _categories.map((CategoryItem c) => c.toJson()).toList(),
+        'hiddenDefaults': _hiddenDefaultIds.toList(),
+      });
       await prefs.setString(_prefsKey, encoded);
     } catch (e) {
       debugPrint('Error saving custom categories: $e');

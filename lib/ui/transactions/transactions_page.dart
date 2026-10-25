@@ -58,6 +58,11 @@ class TransactionsPage extends StatelessWidget {
                         ],
                       ),
                     ),
+                    IconButton(
+                      tooltip: 'Quản lý danh mục',
+                      icon: const Icon(Icons.folder_rounded, color: AppColors.neonCyan, size: 21),
+                      onPressed: () => Navigator.of(context).pushNamed('/categories'),
+                    ),
                     if (store.isLoading)
                       const SizedBox(
                         width: 18,

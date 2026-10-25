@@ -81,17 +81,18 @@ class TransactionStore extends ChangeNotifier {
 
   // ----------------------------------------------------------------- writes
 
-  Future<void> load({bool showSpinner = true}) async {
-    if (showSpinner) {
-      _loading = true;
-      notifyListeners();
-    }
+  Future<void> load() async {
+    _loading = true;
+    notifyListeners();
     await _refreshData();
     _loading = false;
     notifyListeners();
   }
 
-  Future<void> refresh() => load(showSpinner: false);
+  Future<void> refresh() async {
+    await _refreshData();
+    notifyListeners();
+  }
 
   Future<void> _refreshData() async {
     final results = await Future.wait<Object>(<Future<Object>>[
@@ -147,6 +148,24 @@ class TransactionStore extends ChangeNotifier {
   Future<void> setCategory(Transaction tx, Category? category) async {
     await _repo.updateCategory(tx, category);
     await refresh();
+  }
+
+  /// Reassigns a category id without going through the legacy [Category] enum.
+  /// Used when a user moves a transaction into one of their own categories.
+  Future<void> setCategoryId(Transaction tx, String? categoryId) async {
+    await _repo.updateCategoryId(tx, categoryId);
+    await refresh();
+  }
+
+  /// Moves every transaction pointing at [fromCategoryId] to the fallback
+  /// bucket. Called before deleting a category so no expense is orphaned.
+  Future<int> migrateCategoryTransactions(
+    String fromCategoryId,
+    String toCategoryId,
+  ) async {
+    final int moved = await _repo.reassignCategory(fromCategoryId, toCategoryId);
+    await refresh();
+    return moved;
   }
 
   Future<void> delete(Transaction tx) async {

@@ -175,30 +175,46 @@ class _EditTransactionSheetState extends State<EditTransactionSheet> {
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: catStore.all.map((c) {
-                    final selected = _selectedCategoryId == c.id;
-                    return ChoiceChip(
-                      label: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(c.icon, size: 14, color: selected ? Colors.black : c.tint),
-                          const SizedBox(width: 6),
-                          Text(c.label),
-                        ],
-                      ),
-                      selected: selected,
-                      selectedColor: c.tint,
-                      backgroundColor: const Color(0x40162238),
-                      labelStyle: TextStyle(
+                  children: <Widget>[
+                    ...catStore.selectable.map((c) {
+                      final selected = _selectedCategoryId == c.id;
+                      return ChoiceChip(
+                        label: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(c.icon, size: 14, color: selected ? Colors.black : c.tint),
+                            const SizedBox(width: 6),
+                            Text(c.label),
+                          ],
+                        ),
+                        selected: selected,
+                        selectedColor: c.tint,
+                        backgroundColor: const Color(0x40162238),
+                        labelStyle: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: selected ? Colors.black : AppColors.ink,
+                        ),
+                        onSelected: (val) {
+                          if (val) setState(() => _selectedCategoryId = c.id);
+                        },
+                      );
+                    }),
+                    ActionChip(
+                      avatar: const Icon(Icons.add_rounded, size: 15, color: AppColors.neonYellow),
+                      label: const Text('Thêm mục'),
+                      backgroundColor: const Color(0x33162238),
+                      labelStyle: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
-                        color: selected ? Colors.black : AppColors.ink,
+                        color: AppColors.neonYellow,
                       ),
-                      onSelected: (val) {
-                        if (val) setState(() => _selectedCategoryId = c.id);
+                      onPressed: () async {
+                        await Navigator.of(context).pushNamed('/categories');
+                        if (mounted) setState(() {});
                       },
-                    );
-                  }).toList(),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 24),
 
@@ -214,7 +230,7 @@ class _EditTransactionSheetState extends State<EditTransactionSheet> {
                         description: newDesc.isEmpty ? widget.transaction.description : newDesc,
                         categoryId: _selectedCategoryId,
                       );
-                      await txStore.setCategory(updated, Category.byId(_selectedCategoryId));
+                      await txStore.setCategoryId(updated, _selectedCategoryId);
                       if (context.mounted) Navigator.of(context).pop();
                     },
                     style: FilledButton.styleFrom(

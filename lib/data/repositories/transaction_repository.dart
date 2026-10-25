@@ -128,6 +128,17 @@ class TransactionRepository {
     await _dao.updateCategory(tx.id, category?.id);
   }
 
+  /// Category ids from user-defined categories are not valid enum values, so
+  /// they are written straight to the row instead of through [Category].
+  Future<void> updateCategoryId(Transaction tx, String? categoryId) async {
+    await _dao.updateCategory(tx.id, categoryId);
+  }
+
+  /// Re-buckets every transaction of a deleted category. Returns rows moved.
+  Future<int> reassignCategory(String fromCategoryId, String toCategoryId) {
+    return _dao.reassignCategory(fromCategoryId, toCategoryId);
+  }
+
   Future<void> update(Transaction tx) => _dao.update(tx);
 
   Future<void> delete(Transaction tx) => _dao.delete(tx.id);

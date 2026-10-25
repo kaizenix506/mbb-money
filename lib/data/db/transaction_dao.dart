@@ -106,6 +106,18 @@ class TransactionDao {
     );
   }
 
+  /// Moves every row of [fromCategoryId] to [toCategoryId] in one statement.
+  /// Returns the number of rows updated so the caller can report it.
+  Future<int> reassignCategory(String fromCategoryId, String toCategoryId) async {
+    final Database db = await _db;
+    return db.update(
+      'transactions',
+      <String, Object?>{'category_id': toCategoryId},
+      where: 'category_id = ?',
+      whereArgs: <Object?>[fromCategoryId],
+    );
+  }
+
   Future<void> delete(int id) async {
     final Database db = await _db;
     await db.delete('transactions', where: 'id = ?', whereArgs: <Object?>[id]);
