@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/formatters.dart';
 import '../../core/theme.dart';
+import '../../core/vn_clock.dart';
 import '../../data/models/transaction.dart';
 import '../../data/services/cyber_ai_service.dart';
 import '../stores/transaction_store.dart';
@@ -78,7 +79,7 @@ class _CyberAiChatSheetState extends State<CyberAiChatSheet> {
       await txStore.addManual(
         type: TxType.expense,
         amount: extracted.amount,
-        occurredAt: extracted.date ?? DateTime.now(),
+        occurredAt: extracted.date ?? VnClock.localNow(),
         description: extracted.description,
         categoryId: extracted.category,
       );

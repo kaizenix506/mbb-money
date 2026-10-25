@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/formatters.dart';
 import '../../core/theme.dart';
+import '../../core/vn_clock.dart';
 import '../../data/auto_categorizer.dart';
 import '../../data/models/category.dart';
 import '../../data/models/transaction.dart';
@@ -44,7 +45,7 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
   final FocusNode _amountFocus = FocusNode();
 
   late TxType _type = widget.initialType;
-  DateTime _date = DateTime.now();
+  late DateTime _date;
   Category? _category;
   bool _categoryTouched = false;
   bool _saving = false;
@@ -56,6 +57,7 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
   @override
   void initState() {
     super.initState();
+    _date = VnClock.localNow();
     _type = widget.initialType == TxType.transfer
         ? TxType.expense
         : widget.initialType;
@@ -295,7 +297,7 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
       };
 
   Future<void> _pickDate() async {
-    final DateTime now = DateTime.now();
+    final DateTime now = VnClock.localNow();
     final DateTime? date = await showDatePicker(
       context: context,
       initialDate: _date,
@@ -489,7 +491,7 @@ class _DateField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final DateTime now = DateTime.now();
+    final DateTime now = VnClock.localNow();
     final bool isToday = value.year == now.year &&
         value.month == now.month &&
         value.day == now.day;

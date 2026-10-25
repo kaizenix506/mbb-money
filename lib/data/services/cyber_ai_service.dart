@@ -322,10 +322,26 @@ $ctx
           : num.tryParse('${parsed['amount'] ?? ''}');
 
       if (action == 'add_expense' && amount != null && amount > 0) {
-        final String catId =
-            (parsed['category'] ?? 'other').toString().trim();
-        final DateTime when =
-            DateTime.tryParse('${parsed['date'] ?? ''}') ?? VnClock.now();
+        final String? rawDate = parsed['date']?.toString().trim();
+        final DateTime vnNow = VnClock.localNow();
+        DateTime when;
+        if (rawDate != null && rawDate.isNotEmpty) {
+          final DateTime? parsedDate = DateTime.tryParse(rawDate);
+          if (parsedDate != null) {
+            when = DateTime(
+              parsedDate.year,
+              parsedDate.month,
+              parsedDate.day,
+              vnNow.hour,
+              vnNow.minute,
+              vnNow.second,
+            );
+          } else {
+            when = vnNow;
+          }
+        } else {
+          when = vnNow;
+        }
         final String resolvedCat = CategoryCatalog.resolveId(catId);
         final String catName = (parsed['category_name'] ?? CategoryCatalog.labelOf(resolvedCat)).toString();
         final String desc = (parsed['description'] ?? 'Chi tiêu').toString();

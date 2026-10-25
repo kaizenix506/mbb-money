@@ -1,7 +1,9 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../core/formatters.dart';
 import '../../core/theme.dart';
+import '../../core/vn_clock.dart';
 import '../../data/models/transaction.dart';
 import '../../data/stores/category_store.dart';
 import '../stores/transaction_store.dart';
@@ -34,6 +36,7 @@ class _EditTransactionSheetState extends State<EditTransactionSheet> {
   late TextEditingController _descCtrl;
   late TextEditingController _amountCtrl;
   late String? _selectedCategoryId;
+  late DateTime _date;
 
   @override
   void initState() {
@@ -41,6 +44,7 @@ class _EditTransactionSheetState extends State<EditTransactionSheet> {
     _descCtrl = TextEditingController(text: widget.transaction.description);
     _amountCtrl = TextEditingController(text: widget.transaction.amount.toString());
     _selectedCategoryId = widget.transaction.categoryId;
+    _date = widget.transaction.occurredAt;
   }
 
   @override
@@ -218,6 +222,41 @@ class _EditTransactionSheetState extends State<EditTransactionSheet> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 18),
+
+                // Date Time Field
+                const Text('THỜI GIAN GIAO DỊCH', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.inkDim)),
+                const SizedBox(height: 8),
+                InkWell(
+                  onTap: _pickDate,
+                  borderRadius: BorderRadius.circular(14),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0x6604060C),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.glassBorder),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.schedule_rounded, size: 18, color: AppColors.neonCyan),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            '${Fmt.fullDate(_date)} · ${Fmt.time(_date)}',
+                            style: const TextStyle(
+                              fontFamily: 'Courier New',
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.ink,
+                            ),
+                          ),
+                        ),
+                        const Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.inkFaint),
+                      ],
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 24),
 
                 // Save button
@@ -231,8 +270,9 @@ class _EditTransactionSheetState extends State<EditTransactionSheet> {
                         amount: newAmt,
                         description: newDesc.isEmpty ? widget.transaction.description : newDesc,
                         categoryId: _selectedCategoryId,
+                        occurredAt: _date,
                       );
-                      await txStore.setCategoryId(updated, _selectedCategoryId);
+                      await txStore.updateTransaction(updated);
                       if (context.mounted) Navigator.of(context).pop();
                     },
                     style: FilledButton.styleFrom(
@@ -255,5 +295,57 @@ class _EditTransactionSheetState extends State<EditTransactionSheet> {
         ),
       ),
     );
+  }
+
+  Future<void> _pickDate() async {
+    final DateTime now = VnClock.localNow();
+    final DateTime? date = await showDatePicker(
+      context: context,
+      initialDate: _date,
+      firstDate: DateTime(now.year - 5),
+      lastDate: DateTime(now.year + 1),
+      helpText: 'Ngày giao dịch',
+      cancelText: 'Huỷ',
+      confirmText: 'Chọn',
+      builder: (BuildContext context, Widget? child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.dark(
+              primary: AppColors.neonCyan,
+              surface: AppColors.bgMid,
+              onSurface: AppColors.ink,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (date == null) return;
+
+    if (!mounted) return;
+    final TimeOfDay? time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(_date),
+      helpText: 'Giờ giao dịch',
+      cancelText: 'Huỷ',
+      confirmText: 'Chọn',
+      builder: (BuildContext context, Widget? child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.dark(
+              primary: AppColors.neonCyan,
+              surface: AppColors.bgMid,
+              onSurface: AppColors.ink,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (time == null) return;
+
+    setState(() {
+      _date = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    });
   }
 }

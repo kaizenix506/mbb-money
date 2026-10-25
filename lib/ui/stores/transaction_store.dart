@@ -279,6 +279,13 @@ class TransactionStore extends ChangeNotifier {
     await refresh();
   }
 
+  /// Updates all mutable fields of an existing transaction (amount, description,
+  /// occurredAt, categoryId) and refreshes state.
+  Future<void> updateTransaction(Transaction tx) async {
+    await _repo.update(tx);
+    await refresh();
+  }
+
   /// Moves every transaction pointing at [fromCategoryId] to the fallback
   /// bucket. Called before deleting a category so no expense is orphaned.
   Future<int> migrateCategoryTransactions(

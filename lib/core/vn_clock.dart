@@ -18,6 +18,22 @@ abstract final class VnClock {
     return utc.add(offset);
   }
 
+  /// Wall-clock time in Vietnam represented as a local [DateTime] (isUtc = false)
+  /// so that `.millisecondsSinceEpoch` and `fromMillisecondsSinceEpoch` accurately
+  /// reflect the true timestamp without UTC offset skew in database and UI formatters.
+  static DateTime localNow() {
+    final DateTime vn = now();
+    return DateTime(
+      vn.year,
+      vn.month,
+      vn.day,
+      vn.hour,
+      vn.minute,
+      vn.second,
+      vn.millisecond,
+    );
+  }
+
   /// Device "now" shifted into Vietnam wall-clock numbers.
   /// The returned object is a UTC [DateTime] whose fields are the VN fields.
   static DateTime fields() => now();
