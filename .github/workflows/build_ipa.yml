@@ -22,21 +22,42 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Build iOS Application (No Codesign)
+      - name: Build iOS Frameworks (No Codesign)
         run: |
-          flutter build ios --release --no-codesign
+          flutter build ios --config-only
+
+      - name: Build with Xcode (Bypass Provisioning Profile & CodeSign)
+        run: |
+          cd ios
+          pod install
+          xcodebuild build \
+            -workspace Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -destination "generic/platform=iOS" \
+            -derivedDataPath ../build/ios_derived \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM=""
 
       - name: Package Payload into unsigned .ipa
         run: |
-          mkdir -p build/ios/iphoneos/Payload
-          cp -r build/ios/iphoneos/Runner.app build/ios/iphoneos/Payload/
-          cd build/ios/iphoneos
+          mkdir -p Payload
+          APP_PATH=$(find build/ios_derived/Build/Products/Release-iphoneos -name "Runner.app" | head -n 1)
+          if [ -z "$APP_PATH" ]; then
+            echo "Runner.app not found!"
+            find build -name "*.app"
+            exit 1
+          fi
+          echo "Found Runner.app at: $APP_PATH"
+          cp -R "$APP_PATH" Payload/
           zip -r -9 MBBMoney_Cyberpunk_ESign.ipa Payload/
-          echo "IPA created successfully at $(pwd)/MBBMoney_Cyberpunk_ESign.ipa"
+          echo "IPA created successfully: $(ls -lh MBBMoney_Cyberpunk_ESign.ipa)"
 
       - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4
         with:
           name: MBBMoney_Cyberpunk_ESign_IPA
-          path: build/ios/iphoneos/MBBMoney_Cyberpunk_ESign.ipa
+          path: MBBMoney_Cyberpunk_ESign.ipa
           retention-days: 14
