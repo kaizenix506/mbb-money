@@ -58,3 +58,6 @@ suite*.txt
 # Temporary test outputs
 *.txt
 !webhook/README.md
+
+# iOS output IPA
+*.ipa
