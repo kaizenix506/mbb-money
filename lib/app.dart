@@ -25,6 +25,10 @@ class MbbMoneyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       scaffoldMessengerKey: DeepLinkHandler.messengerKey,
       theme: buildLiquidGlassTheme(),
+      // iOS swipe-back / swipe-forward: MaterialApp already installs the
+      // Cupertino back gesture on iOS. What was missing was horizontal swipe
+      // between the three bottom tabs, handled in AppShell's GestureDetector.
+      // Taps on empty space unfocus the keyboard via the shell's TapRegion.
       home: const AppShell(),
       routes: <String, WidgetBuilder>{
         ReviewPage.route: (_) => const _Slate(ReviewPage()),
@@ -82,7 +86,31 @@ class _AppShellState extends State<AppShell> {
         children: <Widget>[
           Positioned.fill(
             child: MidnightBackground(
-              child: IndexedStack(index: _index, children: pages),
+              // TapRegion: a tap that lands outside any text field closes the
+              // keyboard — the behaviour Hoàng expected when tapping empty
+              // space. It is a TapRegion rather than a GestureDetector so it
+              // never swallows taps meant for buttons.
+              child: TapRegion(
+                onTapOutside: (PointerDownEvent _) =>
+                    FocusManager.instance.primaryFocus?.unfocus(),
+                child: GestureDetector(
+                  // Horizontal swipe switches tabs — left→right goes back a tab,
+                  // right→left advances, matching the iOS back/forward feel.
+                  behavior: HitTestBehavior.translucent,
+                  onHorizontalDragEnd: (DragEndDetails d) {
+                    final double v = d.primaryVelocity ?? 0;
+                    if (v.abs() < 260) return;
+                    setState(() {
+                      if (v > 0 && _index > 0) {
+                        _index--;
+                      } else if (v < 0 && _index < pages.length - 1) {
+                        _index++;
+                      }
+                    });
+                  },
+                  child: IndexedStack(index: _index, children: pages),
+                ),
+              ),
             ),
           ),
           if (store.isLoading)

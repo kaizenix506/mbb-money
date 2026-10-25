@@ -20,7 +20,9 @@ import 'data/repositories/secret_store.dart';
 import 'data/repositories/settings_repository.dart';
 import 'data/repositories/sync_service.dart';
 import 'data/repositories/transaction_repository.dart';
+import 'data/services/background_sync_service.dart';
 import 'data/services/cyber_ai_service.dart';
+import 'data/services/notification_service.dart';
 import 'data/stores/category_store.dart';
 import 'ui/stores/transaction_store.dart';
 
@@ -71,6 +73,20 @@ Future<void> main() async {
   final CyberAiService ai = CyberAiService(secrets: secrets);
   final CategoryStore categories = CategoryStore();
 
+  // Worker + notifications: both are best-effort. A failure here must never
+  // block the first frame, so they are fired without awaiting.
+  final NotificationService notifications = NotificationService.instance;
+  unawaited(notifications.init());
+
+  final BackgroundSyncService worker = BackgroundSyncService(
+    sync: sync,
+    secrets: secrets,
+    settings: settings,
+    repository: repo,
+    dao: dao,
+  );
+  unawaited(worker.start());
+
   runApp(
     MultiProvider(
       providers: [
@@ -82,6 +98,7 @@ Future<void> main() async {
         Provider<TransactionRepository>.value(value: repo),
         Provider<SyncService>.value(value: sync),
         Provider<DeepLinkHandler>.value(value: links),
+        Provider<BackgroundSyncService>.value(value: worker),
       ],
       child: const MbbMoneyApp(),
     ),

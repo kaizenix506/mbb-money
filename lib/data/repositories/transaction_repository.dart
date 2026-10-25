@@ -82,6 +82,10 @@ class TransactionRepository {
     return _dao.monthlyExpenses(now: now, months: months);
   }
 
+  /// Twelve monthly totals for [year] — drives the annual report.
+  Future<List<({DateTime month, int total})>> yearlyExpenses(int year) =>
+      _dao.yearlyExpenses(year);
+
   Future<List<Transaction>> recent({int limit = 5}) => _dao.recent(limit: limit);
 
   Future<int> pendingReviewCount() => _dao.countPendingReview();

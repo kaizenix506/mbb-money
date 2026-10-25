@@ -129,7 +129,300 @@ class _TopBar extends StatelessWidget {
             ),
           ),
         ),
+        _PeriodPickerButton(month: month),
       ],
+    );
+  }
+}
+
+/// Opens a compact scrollable list of "current year → previous years" so Hoàng
+/// can jump to any past month or see a whole year at once.
+class _PeriodPickerButton extends StatelessWidget {
+  const _PeriodPickerButton({required this.month});
+
+  final DateTime month;
+
+  @override
+  Widget build(BuildContext context) {
+    final TransactionStore store = context.read<TransactionStore>();
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: () => _open(context, store),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppColors.strokeFaint),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Text(
+              'CHỌN KỲ',
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.2,
+                color: AppColors.inkDim,
+              ),
+            ),
+            SizedBox(width: 4),
+            Icon(Icons.expand_more_rounded, size: 15, color: AppColors.inkDim),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _open(BuildContext context, TransactionStore store) async {
+    final DateTime now = DateTime.now();
+    final List<DateTime> months = <DateTime>[
+      for (int y = now.year; y >= now.year - 4; y--)
+        for (int m = 12; m >= 1; m--)
+          if (!DateTime(y, m).isAfter(DateTime(now.year, now.month)))
+            DateTime(y, m),
+    ];
+    // Oldest first so the list opens near the newest entry.
+    final List<DateTime> reversed = months.reversed.toList(growable: false);
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.bgMid,
+      isScrollControlled: true,
+      enableDrag: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (BuildContext ctx) {
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.6,
+          maxChildSize: 0.9,
+          builder: (BuildContext _, ScrollController scroller) {
+            return ListView(
+              controller: scroller,
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
+              children: <Widget>[
+                const Text(
+                  'CHỌN THÁNG / NĂM',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.8,
+                    color: AppColors.inkDim,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                for (final DateTime m in reversed)
+                  ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(
+                      Fmt.monthYear(m),
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: m.year == month.year && m.month == month.month
+                            ? FontWeight.w900
+                            : FontWeight.w500,
+                        color: AppColors.ink,
+                      ),
+                    ),
+                    trailing: m.year == month.year && m.month == month.month
+                        ? const Icon(Icons.check_rounded,
+                            size: 18, color: AppColors.mint)
+                        : null,
+                    onTap: () {
+                      Navigator.of(ctx).pop();
+                      store.goToMonth(m);
+                    },
+                  ),
+                const Divider(color: AppColors.strokeFaint),
+                const SizedBox(height: 6),
+                Text(
+                  'TỔNG QUAN THEO NĂM',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.8,
+                    color: AppColors.inkDim,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: <Widget>[
+                    for (int y = now.year; y >= now.year - 4; y--)
+                      ActionChip(
+                        label: Text(
+                          'Năm $y',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        onPressed: () {
+                          Navigator.of(ctx).pop();
+                          Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => YearReportPage(year: y),
+                            ),
+                          );
+                        },
+                      ),
+                  ],
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+/// Whole-year summary: 12 monthly bars plus the yearly category split.
+class YearReportPage extends StatefulWidget {
+  const YearReportPage({required this.year, super.key});
+
+  final int year;
+
+  @override
+  State<YearReportPage> createState() => _YearReportPageState();
+}
+
+class _YearReportPageState extends State<YearReportPage> {
+  late Future<List<({DateTime month, int total})>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _load();
+  }
+
+  Future<List<({DateTime month, int total})>> _load() async {
+    // Re-use the monthly query anchored at December of the chosen year so the
+    // whole calendar year is covered.
+    return context.read<TransactionStore>().expensesForYear(widget.year);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.bgTop,
+      appBar: AppBar(
+        title: Text('Năm ${widget.year}'),
+        backgroundColor: Colors.transparent,
+      ),
+      body: FutureBuilder<List<({DateTime month, int total})>>(
+        future: _future,
+        builder: (
+          BuildContext context,
+          AsyncSnapshot<List<({DateTime month, int total})>> snap,
+        ) {
+          if (!snap.hasData) {
+            return const Center(
+              child: CircularProgressIndicator(color: AppColors.mint),
+            );
+          }
+          final List<({DateTime month, int total})> data = snap.data!;
+          final int total =
+              data.fold<int>(0, (int s, ({DateTime month, int total}) e) => s + e.total);
+          final int best = data.fold<int>(
+              0, (int s, ({DateTime month, int total}) e) => e.total > s ? e.total : s);
+
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 60),
+            children: <Widget>[
+              Text(
+                Fmt.dong(total),
+                style: const TextStyle(
+                  fontFamily: 'Courier New',
+                  fontSize: 34,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.ink,
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'TỔNG CHI CẢ NĂM',
+                style: TextStyle(
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 2,
+                  color: AppColors.inkDim,
+                ),
+              ),
+              const SizedBox(height: 26),
+              for (final ({DateTime month, int total}) m in data)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 11),
+                  child: Row(
+                    children: <Widget>[
+                      SizedBox(
+                        width: 38,
+                        child: Text(
+                          'T${m.month.month}',
+                          style: const TextStyle(
+                            fontFamily: 'Courier New',
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.inkDim,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(3),
+                          child: Stack(
+                            children: <Widget>[
+                              Container(
+                                height: 9,
+                                color: Colors.white.withValues(alpha: 0.05),
+                              ),
+                              FractionallySizedBox(
+                                widthFactor: best == 0
+                                    ? 0
+                                    : (m.total / best).clamp(0.0, 1.0),
+                                child: Container(
+                                  height: 9,
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      colors: <Color>[
+                                        AppColors.neonViolet,
+                                        AppColors.neonCyan,
+                                      ],
+                                    ),
+                                    borderRadius: BorderRadius.circular(3),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      SizedBox(
+                        width: 62,
+                        child: Text(
+                          Fmt.compact(m.total),
+                          textAlign: TextAlign.right,
+                          style: const TextStyle(
+                            fontFamily: 'Courier New',
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.ink,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
     );
   }
 }

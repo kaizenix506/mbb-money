@@ -74,6 +74,51 @@ class SettingsRepository extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ------------------------------------------------------------- avatar
+
+  static const String _kAvatarPath = 'profile.avatar_path';
+  static const String _kDisplayName = 'profile.name';
+
+  /// Absolute file path of the user's chosen avatar, or `null` for the default
+  /// neon monogram.
+  String? get avatarPath => _prefs.getString(_kAvatarPath);
+
+  Future<void> setAvatarPath(String? path) async {
+    if (path == null || path.isEmpty) {
+      await _prefs.remove(_kAvatarPath);
+    } else {
+      await _prefs.setString(_kAvatarPath, path);
+    }
+    notifyListeners();
+  }
+
+  /// Defaults to Hoàng, but the header reads this so the user can rename.
+  String get displayName {
+    final String? n = _prefs.getString(_kDisplayName);
+    return (n == null || n.trim().isEmpty) ? 'Hoàng' : n.trim();
+  }
+
+  Future<void> setDisplayName(String name) async {
+    if (name.trim().isEmpty) {
+      await _prefs.remove(_kDisplayName);
+    } else {
+      await _prefs.setString(_kDisplayName, name.trim());
+    }
+    notifyListeners();
+  }
+
+  // ------------------------------------------------------ notifications
+
+  static const String _kBalanceAlerts = 'notify.balance_alerts';
+
+  /// Ask Hoàng to categorise + describe a row when the balance moves.
+  bool get balanceAlertsEnabled => _prefs.getBool(_kBalanceAlerts) ?? true;
+
+  Future<void> setBalanceAlerts(bool value) async {
+    await _prefs.setBool(_kBalanceAlerts, value);
+    notifyListeners();
+  }
+
   /// Drives the "có N giao dịch cần phân loại" nudge on the overview.
   static bool looksLikeMbNotice(String text) {
     // Kept here only so settings can show a live preview of the parser.
@@ -89,6 +134,9 @@ class SettingsRepository extends ChangeNotifier {
       'sepay': sepayEnabled,
       'sepayAccount': sepayAccountNumber,
       'lastSync': lastSyncAt?.toIso8601String(),
+      'displayName': displayName,
+      'hasAvatar': avatarPath != null,
+      'balanceAlerts': balanceAlertsEnabled,
     });
   }
 }

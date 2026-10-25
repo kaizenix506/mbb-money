@@ -1,19 +1,25 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/formatters.dart';
 import '../../core/theme.dart';
+import '../../core/vn_clock.dart';
 import '../../data/db/transaction_dao.dart';
+import '../../data/models/category.dart';
 import '../../data/models/transaction.dart';
-import '../../data/models/tx_source.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../data/repositories/sync_service.dart';
+import '../../data/services/notification_service.dart';
 import '../categories/manage_categories_page.dart';
 import '../settings/settings_page.dart';
 import '../stores/transaction_store.dart';
 import '../transactions/edit_transaction_sheet.dart';
 import '../widgets/balance_hero_card.dart';
+import '../widgets/charts.dart';
 import '../widgets/common.dart';
+import 'live_header.dart';
 
 /// Home tab — the "Midnight Glass" screen.
 class OverviewPage extends StatefulWidget {
@@ -28,6 +34,7 @@ class OverviewPage extends StatefulWidget {
 
 class _OverviewPageState extends State<OverviewPage> {
   bool _syncing = false;
+  final TickerClock _clock = TickerClock();
 
   @override
   void initState() {
@@ -37,6 +44,12 @@ class _OverviewPageState extends State<OverviewPage> {
       // fresh SePay rows when the user has that source enabled.
       _autoSync(quiet: true);
     });
+  }
+
+  @override
+  void dispose() {
+    _clock.dispose();
+    super.dispose();
   }
 
   Future<void> _autoSync({bool quiet = false}) async {
@@ -53,6 +66,24 @@ class _OverviewPageState extends State<OverviewPage> {
       await settings.markSynced(DateTime.now());
       if (mounted) {
         await context.read<TransactionStore>().afterExternalIngest();
+      }
+    // Balance moved → nudge Hoàng to categorise + describe.
+      if (settings.balanceAlertsEnabled) {
+        final List<Transaction> unclassified = mounted
+            ? context.read<TransactionStore>().monthTransactions
+                .where((Transaction t) =>
+                    t.isExpense && (t.categoryId == null || t.categoryId!.isEmpty))
+                .toList(growable: false)
+            : const <Transaction>[];
+        unawaited(
+          NotificationService.instance.notifyBalanceChanged(
+            newCount: report.added,
+            total: unclassified.fold<int>(0, (int s, Transaction t) => s + t.amount),
+            sample: unclassified.isEmpty
+                ? null
+                : unclassified.first.description,
+          ),
+        );
       }
     }
     if (!mounted) return;
@@ -83,8 +114,14 @@ class _OverviewPageState extends State<OverviewPage> {
             padding: const EdgeInsets.fromLTRB(18, 4, 18, 120),
             physics: const AlwaysScrollableScrollPhysics(),
             children: <Widget>[
-              const _Header(),
-              const SizedBox(height: 18),
+              LiveHeader(
+                clock: _clock,
+                onOpenSettings: () =>
+                    Navigator.of(context).pushNamed(SettingsPage.route),
+                onOpenCategories: () =>
+                    Navigator.of(context).pushNamed(ManageCategoriesPage.route),
+              ),
+              const SizedBox(height: 12),
               BalanceHeroCard(
                 income: totals.income,
                 expense: totals.expense,
@@ -96,6 +133,8 @@ class _OverviewPageState extends State<OverviewPage> {
                 onNextMonth: store.nextMonth,
                 onSyncTap: () => _autoSync(quiet: false),
               ),
+              const SizedBox(height: 14),
+              _MonthInsights(store: store),
               if (store.pendingReviewCount > 0)
                 _ReviewBanner(count: store.pendingReviewCount),
               SectionHeader(
@@ -121,11 +160,11 @@ class _OverviewPageState extends State<OverviewPage> {
                 GlassCard(
                   child: EmptyHint(
                     icon: Icons.receipt_long_rounded,
-                    title: 'Chưa có giao dịch nào',
-                    subtitle: 'Thêm tay hoặc bật đọc MB Bank trong Cài đặt '
-                        'để app tự ghi mọi khoản.',
+                title: 'Chưa có giao dịch nào',
+                subtitle: 'Thêm tay hoặc bật đọc MB Bank trong Cài đặt '
+                    'để app tự ghi mọi khoản.',
                     action: _GlowButton(
-                      label: 'Thêm giao dịch',
+                label: 'Thêm giao dịch',
                       icon: Icons.add_rounded,
                       onTap: widget.onAdd,
                     ),
@@ -160,124 +199,120 @@ class _OverviewPageState extends State<OverviewPage> {
   }
 }
 
-class _Header extends StatelessWidget {
-  const _Header();
+/// Donut + month-over-month comparison, inserted right under the hero card.
+class _MonthInsights extends StatelessWidget {
+  const _MonthInsights({required this.store});
+
+  final TransactionStore store;
 
   @override
   Widget build(BuildContext context) {
-    final String greeting = switch (DateTime.now().hour) {
-      >= 5 && < 11 => 'Chào buổi sáng',
-      >= 11 && < 14 => 'Chào buổi trưa',
-      >= 14 && < 18 => 'Chào buổi chiều',
-      _ => 'Chào buổi tối',
-    };
+    final List<CategoryTotal> cats = store.byCategory;
+    final List<({DateTime month, int total})> trailing = store.trailing;
+    final int current = store.totals.expense;
+    final int previous =
+        trailing.length >= 2 ? trailing[trailing.length - 2].total : 0;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-      child: Row(
-        children: <Widget>[
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: const RadialGradient(
-                colors: [AppColors.neonCyan, Color(0xFF0077FF)],
-              ),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.6), width: 1.5),
-              boxShadow: AppColors.liquidGlow(AppColors.neonCyan, blur: 12),
-            ),
-            alignment: Alignment.center,
-            child: const Text(
-              'H',
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 20,
-                fontWeight: FontWeight.w900,
-                color: Colors.black,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
+    final List<DonutSlice> slices = <DonutSlice>[
+      for (final CategoryTotal c in cats.take(6))
+        DonutSlice(
+          label: c.category.label,
+          value: c.total,
+          color: c.category.tint,
+        ),
+    ];
+
+    return Column(
+      children: <Widget>[
+        if (slices.isNotEmpty)
+          GlassCard(
+            child: Row(
               children: <Widget>[
-                Text(
-                  '$greeting, Hoàng',
-                  style: const TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.neonCyan,
-                    letterSpacing: 0.5,
-                  ),
+                NeonDonutChart(
+                  slices: slices,
+                  centerValue: Fmt.compact(current),
+                  centerLabel: 'THÁNG NÀY',
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  Fmt.fullDate(DateTime.now()).split(',').first,
-                  style: const TextStyle(
-                    fontSize: 16.5,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.2,
-                    color: AppColors.ink,
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      const Text(
+                        'CHI THEO MỤC',
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.4,
+                          color: AppColors.inkFaint,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      for (final CategoryTotal c in cats.take(4))
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 7),
+                          child: Row(
+                            children: <Widget>[
+                              Container(
+                                width: 7,
+                                height: 7,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: c.category.tint,
+                                  boxShadow: <BoxShadow>[
+                                    BoxShadow(
+                                      color: c.category.tint
+                                          .withValues(alpha: 0.6),
+                                      blurRadius: 6,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  c.category.label,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 11.5,
+                                    color: AppColors.inkDim,
+                                  ),
+                                ),
+                              ),
+                              Text(
+                                current == 0
+                                    ? '0%'
+                                    : '${((c.total / current) * 100).round()}%',
+                                style: const TextStyle(
+                                  fontFamily: 'Courier New',
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.ink,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
-          _HeaderIconButton(
-            icon: Icons.category_rounded,
-            label: 'Danh mục',
-            onTap: () => Navigator.of(context).pushNamed(ManageCategoriesPage.route),
+        if (slices.isNotEmpty) const SizedBox(height: 12),
+        MonthCompareCard(
+          current: current,
+          previous: previous,
+          monthLabel: Fmt.monthYear(store.month),
+          prevLabel: Fmt.monthYear(
+            DateTime(store.month.year, store.month.month - 1),
           ),
-          const SizedBox(width: 8),
-          _HeaderIconButton(
-            icon: Icons.tune_rounded,
-            label: 'Cài đặt',
-            onTap: () => Navigator.of(context).pushNamed(SettingsPage.route),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _HeaderIconButton extends StatelessWidget {
-  const _HeaderIconButton({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: label,
-      child: InkResponse(
-        onTap: onTap,
-        radius: 22,
-        child: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.white.withValues(alpha: 0.06),
-            border: Border.all(color: AppColors.strokeFaint),
-          ),
-          child: Icon(icon, size: 18, color: AppColors.inkDim),
         ),
-      ),
+      ],
     );
   }
 }
-
 /// Nudge to fix rows the parser could not confidently categorise.
 class _ReviewBanner extends StatelessWidget {
   const _ReviewBanner({required this.count});
@@ -444,13 +479,13 @@ class _QuickDetailSheet extends StatelessWidget {
           const SizedBox(height: 18),
           _DetailRow('Thời gian', Fmt.fullDate(transaction.occurredAt) +
               ' · ${Fmt.time(transaction.occurredAt)}'),
-          _DetailRow('Nguồn', transaction.source.badge),
+            _DetailRow('Nguồn', transaction.source.badge),
           if (transaction.referenceNumber != null)
             _DetailRow('Mã tham chiếu', transaction.referenceNumber!),
           if (transaction.rawText != null) ...<Widget>[
             const SizedBox(height: 14),
             const Text(
-              'Tin nhắn gốc',
+                    'Tin nhắn gốc',
               style: TextStyle(fontSize: 11, color: AppColors.inkFaint),
             ),
             const SizedBox(height: 6),

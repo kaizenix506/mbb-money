@@ -6,15 +6,20 @@ import '../../core/theme.dart';
 import '../../data/models/transaction.dart';
 import '../../data/services/cyber_ai_service.dart';
 import '../stores/transaction_store.dart';
+import '../transactions/edit_transaction_sheet.dart';
 
 class CyberAiChatSheet extends StatefulWidget {
   const CyberAiChatSheet({super.key});
 
   static Future<void> show(BuildContext context) {
+    FocusManager.instance.primaryFocus?.unfocus();
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      isDismissible: true,
+      enableDrag: true,
+      barrierColor: Colors.black.withValues(alpha: 0.6),
       builder: (_) => const CyberAiChatSheet(),
     );
   }
@@ -28,11 +33,10 @@ class _CyberAiChatSheetState extends State<CyberAiChatSheet> {
   final ScrollController _scrollCtrl = ScrollController();
 
   final List<String> _quickPrompts = [
-    'Ăn sáng hết 10k',
-    'Vừa mua cafe 35k',
-    'Đổ xăng 50k',
-    'Tháng này chi hết bao nhiêu?',
-    'Cho lời khuyên tiết kiệm',
+    'uống nước 20k',
+    'ăn sáng 10k',
+    'cafe 35k',
+    'grab 45k',
   ];
 
   @override
@@ -64,9 +68,12 @@ class _CyberAiChatSheetState extends State<CyberAiChatSheet> {
     final expenses = txStore.monthTransactions.where((t) => t.isExpense).toList();
 
     _scrollToBottom();
+
+    final started = DateTime.now();
     final extracted = await aiService.sendMessage(text, currentExpenses: expenses);
 
-    if (extracted != null && mounted) {
+    if (!mounted) return;
+    if (extracted != null) {
       // Automatically commit the expense to SQLite!
       await txStore.addManual(
         type: TxType.expense,
@@ -75,8 +82,22 @@ class _CyberAiChatSheetState extends State<CyberAiChatSheet> {
         description: extracted.description,
         categoryId: extracted.category,
       );
+      debugPrint('A.R.I.A ghi sổ trong '
+          '${DateTime.now().difference(started).inMilliseconds}ms');
       _scrollToBottom();
     }
+  }
+
+  /// Opens the category picker for a row the AI just filed, so a wrong guess is
+  /// one tap away from being corrected rather than needing a manual edit.
+  Future<void> _refile(ExtractedExpense e) async {
+    final txStore = context.read<TransactionStore>();
+    final match = txStore.monthTransactions
+        .where((t) =>
+            t.amount == e.amount && t.description == e.description)
+        .toList(growable: false);
+    if (match.isEmpty) return;
+    await EditTransactionSheet.show(context, match.first);
   }
 
   @override
@@ -84,9 +105,14 @@ class _CyberAiChatSheetState extends State<CyberAiChatSheet> {
     final aiService = context.watch<CyberAiService>();
     final viewInsets = MediaQuery.of(context).viewInsets.bottom;
 
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.85,
-      margin: EdgeInsets.only(bottom: viewInsets),
+    return Padding(
+      padding: EdgeInsets.only(bottom: viewInsets),
+      child: GestureDetector(
+        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+        height: MediaQuery.of(context).size.height *
+            (viewInsets > 0 ? 0.92 : 0.86),
       child: ClipRRect(
         borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
         child: BackdropFilter(
@@ -278,6 +304,8 @@ class _CyberAiChatSheetState extends State<CyberAiChatSheet> {
           ),
         ),
       ),
+      ),
+      ),
     );
   }
 
@@ -370,7 +398,7 @@ class _CyberAiChatSheetState extends State<CyberAiChatSheet> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'ĐÃ TỰ ĐỘNG LƯU: ${extracted.description} (${Fmt.dong(extracted.amount)}) ▸ ${extracted.categoryName}',
+                        'ĐÃ TỰ ĐỘNG LƯU: ${extracted.description} (${Fmt.dong(extracted.amount)}) → ${extracted.categoryName}',
                         style: const TextStyle(
                           fontSize: 11.5,
                           fontWeight: FontWeight.w700,
@@ -383,12 +411,45 @@ class _CyberAiChatSheetState extends State<CyberAiChatSheet> {
               ),
             ],
             const SizedBox(height: 6),
-            Align(
-              alignment: Alignment.bottomRight,
-              child: Text(
-                Fmt.time(msg.timestamp),
-                style: const TextStyle(fontSize: 10, color: AppColors.inkFaint),
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: <Widget>[
+                if (msg.latencyMs != null && !isUser)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Text(
+                      '${msg.latencyMs}ms',
+                      style: TextStyle(
+                        fontFamily: 'Courier New',
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        color: msg.latencyMs! < 900
+                            ? AppColors.neonGreen
+                            : AppColors.inkFaint,
+                      ),
+                    ),
+                  ),
+                if (!isUser && extracted != null)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: GestureDetector(
+                      onTap: () => _refile(extracted),
+                      child: const Text(
+                        'SỬA MỤC',
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.8,
+                          color: AppColors.neonYellow,
+                        ),
+                      ),
+                    ),
+                  ),
+                Text(
+                  Fmt.time(msg.timestamp),
+                  style: const TextStyle(fontSize: 10, color: AppColors.inkFaint),
+                ),
+              ],
             ),
           ],
         ),

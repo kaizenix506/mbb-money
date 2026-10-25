@@ -50,6 +50,9 @@ abstract final class AppColors {
 
   static List<BoxShadow> neonGlow(Color color, {double blur = 18, double spread = 0}) =>
       liquidGlow(color, blur: blur, spread: spread);
+
+  /// Background wash used by the overview's live clock strip.
+  static const Color clockStrip = Color(0xCC06090F);
 }
 
 abstract final class AppRadius {

@@ -9,6 +9,7 @@ import '../../data/models/category.dart';
 import '../../data/models/transaction.dart';
 import '../stores/transaction_store.dart';
 import '../widgets/common.dart';
+import '../widgets/sheet_kit.dart';
 
 /// Quick-add sheet.
 ///
@@ -21,10 +22,15 @@ class AddTransactionSheet extends StatefulWidget {
   final TxType initialType;
 
   static Future<bool?> show(BuildContext context, {TxType? type}) {
+    FocusManager.instance.primaryFocus?.unfocus();
     return showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
+      isDismissible: true,
+      enableDrag: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.65),
       builder: (_) => AddTransactionSheet(initialType: type ?? TxType.expense),
     );
   }
@@ -109,9 +115,13 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
     final bool isIncome = _type == TxType.income;
     final Color accent = isIncome ? AppColors.mint : AppColors.coral;
 
-    return Padding(
+    return SheetKit.dismissKeyboardOnTap(
+      Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: Container(
+      child: GestureDetector(
+        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+        behavior: HitTestBehavior.opaque,
+        child: Container(
         decoration: const BoxDecoration(
           color: AppColors.bgMid,
           borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
@@ -273,6 +283,8 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
             ],
           ),
         ),
+        ),
+      ),
       ),
     );
   }

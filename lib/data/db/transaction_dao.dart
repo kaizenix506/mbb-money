@@ -247,6 +247,36 @@ class TransactionDao {
     });
   }
 
+  /// Expense total for every month of [year], January first.
+  /// Powers the annual report so a past year does not need 12 separate calls.
+  Future<List<({DateTime month, int total})>> yearlyExpenses(int year) async {
+    final Database db = await _db;
+    final DateTime from = DateTime(year, 1, 1);
+    final DateTime to = DateTime(year + 1, 1, 1);
+
+    final List<Map<String, Object?>> rows = await db.rawQuery(
+      '''
+      SELECT strftime('%m', occurred_at / 1000, 'unixepoch', 'localtime') AS m,
+             SUM(amount) AS total
+      FROM transactions
+      WHERE type = 'expense' AND occurred_at >= ? AND occurred_at < ?
+      GROUP BY m
+      ''',
+      <Object?>[from.millisecondsSinceEpoch, to.millisecondsSinceEpoch],
+    );
+
+    final Map<int, int> byMonth = <int, int>{
+      for (final Map<String, Object?> r in rows)
+        int.tryParse(r['m'] as String? ?? '') ?? 0:
+            (r['total'] as num?)?.toInt() ?? 0,
+    };
+
+    return List<({DateTime month, int total})>.generate(
+      12,
+      (int i) => (month: DateTime(year, i + 1), total: byMonth[i + 1] ?? 0),
+    );
+  }
+
   Future<int> countPendingReview() async {
     final Database db = await _db;
     final List<Map<String, Object?>> rows = await db.rawQuery(

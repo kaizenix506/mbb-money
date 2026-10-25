@@ -7,6 +7,7 @@ import '../../data/models/category.dart';
 import '../../data/models/transaction.dart';
 import '../add/add_transaction_sheet.dart';
 import '../stores/transaction_store.dart';
+import '../widgets/charts.dart';
 import '../widgets/common.dart';
 import '../widgets/mini_chip.dart';
 
@@ -48,11 +49,27 @@ class TransactionsPage extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 4),
-                          Text(
-                            Fmt.monthYear(store.month),
-                            style: const TextStyle(
-                              fontSize: 12.5,
-                              color: AppColors.inkDim,
+                          // Same swipe/pick affordance as reports: tap the month
+                          // to jump anywhere in history.
+                          GestureDetector(
+                            onTap: () => showMonthPicker(context, store),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: <Widget>[
+                                Text(
+                                  Fmt.monthYear(store.month),
+                                  style: const TextStyle(
+                                    fontSize: 12.5,
+                                    color: AppColors.inkDim,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                const Icon(
+                                  Icons.expand_more_rounded,
+                                  size: 14,
+                                  color: AppColors.inkFaint,
+                                ),
+                              ],
                             ),
                           ),
                         ],

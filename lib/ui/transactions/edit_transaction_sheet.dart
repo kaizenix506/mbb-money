@@ -16,10 +16,14 @@ class EditTransactionSheet extends StatefulWidget {
   final Transaction transaction;
 
   static Future<void> show(BuildContext context, Transaction transaction) {
+    FocusManager.instance.primaryFocus?.unfocus();
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      isDismissible: true,
+      enableDrag: true,
+      barrierColor: Colors.black.withValues(alpha: 0.65),
       builder: (_) => EditTransactionSheet(transaction: transaction),
     );
   }

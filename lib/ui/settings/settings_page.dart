@@ -6,6 +6,7 @@ import '../../core/theme.dart';
 import '../../data/repositories/secret_store.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../data/repositories/sync_service.dart';
+import '../../data/services/notification_service.dart';
 import '../stores/transaction_store.dart';
 import '../widgets/common.dart';
 
@@ -90,7 +91,12 @@ class _SettingsPageState extends State<SettingsPage> {
           _CyberAiConfigCard(controller: _geminiCtrl),
           const SizedBox(height: 24),
 
-          // Section 3: Data Management
+          // Section 3: Notifications
+          _SectionTitle('NHẮC NHỞ BIẾN ĐỘNG SỐ DƯ'),
+          _CyberNotificationsCard(settings: settings),
+          const SizedBox(height: 24),
+
+          // Section 4: Data Management
           _SectionTitle('DỮ LIỆU & BỘ NHỚ LOCAL'),
           _CyberDataCard(),
         ],
@@ -520,6 +526,84 @@ class _CyberAiConfigCard extends StatelessWidget {
               ),
               child: const Text('Lưu AI Key'),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Toggles the "biến động số dư" reminders and shows whether the background
+/// worker is currently polling SePay.
+class _CyberNotificationsCard extends StatelessWidget {
+  const _CyberNotificationsCard({required this.settings});
+
+  final SettingsRepository settings;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppRadius.card),
+        color: AppColors.glassPanel,
+        border: Border.all(color: AppColors.glassBorder),
+      ),
+      child: Column(
+        children: <Widget>[
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            value: settings.balanceAlertsEnabled,
+            activeTrackColor: AppColors.neonCyan.withValues(alpha: 0.35),
+            title: const Text(
+              'Nhắc phân loại khi số dư đổi',
+              style: TextStyle(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w700,
+                color: AppColors.ink,
+              ),
+            ),
+            subtitle: const Text(
+              'Có giao dịch mới, app sẽ nhắc bạn thêm danh mục và mô tả.',
+              style: TextStyle(fontSize: 11.5, color: AppColors.inkDim),
+            ),
+            onChanged: (bool v) async {
+              await settings.setBalanceAlerts(v);
+              if (v) await NotificationService.instance.ensurePermission();
+            },
+          ),
+          const Divider(color: AppColors.strokeFaint, height: 22),
+          Row(
+            children: <Widget>[
+              Icon(
+                Icons.sync_rounded,
+                size: 15,
+                color: settings.sepayEnabled
+                    ? AppColors.neonGreen
+                    : AppColors.inkFaint,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  settings.sepayEnabled
+                      ? 'Đồng bộ nền đang bật · quét mỗi 45 giây'
+                      : 'Đồng bộ nền đang tắt',
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    color: AppColors.inkDim,
+                  ),
+                ),
+              ),
+              if (settings.lastSyncAt != null)
+                Text(
+                  Fmt.time(settings.lastSyncAt!),
+                  style: const TextStyle(
+                    fontFamily: 'Courier New',
+                    fontSize: 11,
+                    color: AppColors.inkFaint,
+                  ),
+                ),
+            ],
           ),
         ],
       ),

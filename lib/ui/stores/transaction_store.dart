@@ -173,6 +173,11 @@ class TransactionStore extends ChangeNotifier {
     await refresh();
   }
 
+  /// Twelve monthly totals for a whole calendar year.
+  Future<List<({DateTime month, int total})>> expensesForYear(int year) {
+    return _repo.yearlyExpenses(year);
+  }
+
   /// Called after a Shortcut deep link or a SePay sync so the UI catches up.
   Future<void> afterExternalIngest() => refresh();
 }
