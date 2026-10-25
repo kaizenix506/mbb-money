@@ -99,8 +99,18 @@ curl "https://<worker>/pull?since=0" -H "Authorization: Bearer $APP_PULL_TOKEN"
 
 ## Giới hạn cần biết
 
+- **Đồng bộ bù, không phải realtime.** Webhook giữ giao dịch an toàn khi app
+  đóng, nhưng app chỉ *đọc* hộp thư khi được chạy (mở app, hoặc iOS cho phép cập
+  nhật nền). Thông báo trên điện thoại vì thế có thể trễ — nội dung thì không
+  mất, miễn là app mở lại trong 30 ngày.
+- **Hộp thư có hạn 30 ngày.** Nếu bạn không mở app suốt quá 30 ngày, các dòng
+  cũ bị dọn. Khi đó API SePay vẫn là lưới an toàn, nhưng chỉ với dữ liệu còn
+  trên hệ thống SePay.
 - Nếu SePay retry một webhook mà Worker đã nhận, chuông thông báo trên app có
-  thể reo lại — nhưng **giao dịch không bị nhân đôi**.
+  thể reo lại — nhưng **giao dịch không bị nhân đôi** (khoá `sepay:<id>`).
 - Worker không giữ token SePay của bạn; nó chỉ nhận đúng payload SePay gửi.
 - Inbox là "hộp thư tạm", không phải nguồn sự thật. Nguồn sự thật vẫn là SQLite
   trên máy + API SePay.
+- **Chỉ ghi chi.** Dòng thu được trả `200` nhưng không xếp vào hộp thư, đúng với
+  phạm vi "chuyên phụ trách chi tiêu".
+
