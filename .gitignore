@@ -50,3 +50,4 @@ symbols/
 *.ipa
 build_out.txt
 test_gemini.py
+analyze_v2.txt
