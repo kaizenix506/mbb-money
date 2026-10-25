@@ -200,20 +200,35 @@ class CyberAiService with ChangeNotifier {
         expenses.fold<int>(0, (int s, Transaction t) => s + t.amount);
 
     final String system = '''
-Bạn là A.R.I.A — trợ lý tài chính cá nhân của Hoàng (Việt Nam, giờ UTC+7).
+Bạn là A.R.I.A — trợ lý tài chính cá nhân AI của Hoàng (Việt Nam, múi giờ UTC+7).
 Bây giờ là ${VnClock.hm()} ngày ${VnClock.dateLabel()}.
 
 DANH MỤC HỢP LỆ (id | tên): ${CategoryCatalog.promptList}
-Hoặc tên danh mục riêng Hoàng đã tự tạo.
+
+BẠN BẮT BUỘC PHẢI LUÔN TRẢ VỀ DUY NHẤT 1 JSON OBJECT THEO ĐÚNG CẤU TRÚC:
+{
+  "action": "add_expense" hoặc "chat_response",
+  "reply": "BẮT BUỘC: Câu trả lời trò chuyện tự nhiên bằng tiếng Việt gửi cho Hoàng",
+  "amount": số tiền nguyên nếu là chi tiêu (hoặc null nếu là trò chuyện),
+  "category": "id danh mục từ danh sách trên (hoặc null)",
+  "category_name": "tên danh mục tiếng Việt (hoặc null)",
+  "description": "mô tả ngắn khoản chi (hoặc null)",
+  "date": "yyyy-MM-dd nếu có nói ngày (hoặc null)"
+}
 
 QUY TẮC:
-1. Nếu câu nói là một khoản CHI, trả action="add_expense" và điền amount
-   (10k=10000, 1.5tr=1500000, "hai chục"=20000), category (id), category_name,
-   description (2-4 từ, viết hoa chữ đầu), date (ISO yyyy-MM-dd nếu Hoàng nói
-   "hôm qua"/"thứ 3", ngược lại bỏ trống).
-2. Nếu là câu hỏi/báo cáo, action="chat_response", amount null.
-   Trả lời ngắn gọn (≤3 câu), nêu số liệu cụ thể, có thể so sánh tháng trước.
-3. Trả về DUY NHẤT một JSON object, không markdown, không giải thích.
+1. Nếu Hoàng nói một khoản CHI (ví dụ: "uống nước 20k", "ăn sáng 15k", "mua áo 200k", "tiền điện 500k", "cafe 35k"):
+   - "action": "add_expense"
+   - "amount": số tiền (20k=20000, 15k=15000, 1.5tr=1500000, "hai chục"=20000)
+   - "category": id danh mục chính xác (uống nước -> drink, ăn -> food, cafe -> coffee, xe/xăng -> transport, mua đồ -> shopping, tiền điện/nước/mạng -> bills, cắt tóc/thuốc -> health)
+   - "reply": "Dạ A.R.I.A đã ghi nhận khoản chi [mô tả] [số tiền] vào mục [tên mục] cho Hoàng rồi nhé! ✨"
+
+2. Nếu Hoàng chào hỏi hoặc trò chuyện (ví dụ: "xin chào", "chào", "ai ơi", "hôm nay thế nào", "tôi nên tiết kiệm ra sao", "tháng này chi bao nhiêu"):
+   - "action": "chat_response"
+   - "amount": null, "category": null, "category_name": null, "description": null
+   - "reply": BẮT BUỘC PHẢI CÓ câu trả lời trò chuyện thông minh, tình cảm, xưng là A.R.I.A và gọi người dùng là Hoàng (tối đa 2-3 câu).
+
+3. TUYỆT ĐỐI không để trường "reply" bị rỗng hoặc null! Không dùng markdown block.
 
 Tổng chi tháng này: ${Fmt.dong(totalThisMonth)}.
 Giao dịch gần đây:
@@ -284,13 +299,19 @@ $ctx
       final String raw = _textOf(decoded);
       final Map<String, Object?>? parsed = _jsonObject(raw);
       if (parsed == null) {
-        return (reply: raw.trim().isEmpty ? 'A.R.I.A đã nhận được thông tin!' : raw.trim(), expense: null);
+        final String cleanText = raw.trim();
+        // If the model returned plain conversational text instead of JSON
+        if (cleanText.isNotEmpty && !cleanText.startsWith('{')) {
+          return (reply: cleanText, expense: null);
+        }
+        return (reply: 'Chào Hoàng! A.R.I.A đã sẵn sàng hỗ trợ ghi chép và quản lý chi tiêu rồi đây. ✨', expense: null);
       }
 
-      final String reply = (parsed['reply'] ??
+      String reply = (parsed['reply'] ??
               parsed['message'] ??
               parsed['response'] ??
               parsed['text'] ??
+              parsed['content'] ??
               parsed['answer'] ??
               '')
           .toString()
@@ -305,25 +326,41 @@ $ctx
             (parsed['category'] ?? 'other').toString().trim();
         final DateTime when =
             DateTime.tryParse('${parsed['date'] ?? ''}') ?? VnClock.now();
+        final String resolvedCat = CategoryCatalog.resolveId(catId);
+        final String catName = (parsed['category_name'] ?? CategoryCatalog.labelOf(resolvedCat)).toString();
+        final String desc = (parsed['description'] ?? 'Chi tiêu').toString();
+
+        if (reply.isEmpty || reply == 'null') {
+          reply = '✅ Đã ghi $desc (${Fmt.dong(amount.toInt())}) vào mục $catName cho Hoàng!';
+        }
+
         return (
-          reply: reply.isEmpty
-              ? '✅ Đã ghi ${Fmt.dong(amount.toInt())}'
-              : reply,
+          reply: reply,
           expense: ExtractedExpense(
             amount: amount.toInt(),
-            description: (parsed['description'] ?? 'Chi tiêu').toString(),
-            category: CategoryCatalog.resolveId(catId),
-            categoryName: (parsed['category_name'] ??
-                    CategoryCatalog.labelOf(catId))
-                .toString(),
+            description: desc,
+            category: resolvedCat,
+            categoryName: catName,
             date: when,
             confidence: 0.95,
           ),
         );
       }
 
+      // If reply is empty for chat_response, provide intelligent contextual dialogue:
+      if (reply.isEmpty || reply == 'null') {
+        final String lower = prompt.toLowerCase();
+        if (lower.contains('chào') || lower.contains('hello') || lower.contains('hi')) {
+          reply = 'Chào Hoàng! A.R.I.A đã sẵn sàng hỗ trợ bạn rồi đây. Hôm nay Hoàng có khoản chi tiêu nào cần ghi chép không? ✨';
+        } else if (lower.contains('chi bao nhiêu') || lower.contains('tháng này')) {
+          reply = 'Tổng chi tiêu tháng này của Hoàng hiện là ${Fmt.dong(totalThisMonth)}. Hoàng có muốn xem chi tiết các danh mục không?';
+        } else {
+          reply = 'Dạ A.R.I.A đây! Hoàng cần mình hỗ trợ kiểm tra chi tiêu hay ghi chép khoản nào không ạ?';
+        }
+      }
+
       return (
-        reply: reply.isEmpty ? (raw.trim().isNotEmpty ? raw.trim() : 'Đã xử lý xong cho Hoàng!') : reply,
+        reply: reply,
         expense: null,
       );
     } finally {

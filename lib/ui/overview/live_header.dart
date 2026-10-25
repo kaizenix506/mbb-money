@@ -31,76 +31,81 @@ class LiveHeader extends StatelessWidget {
     final SettingsRepository settings = context.watch<SettingsRepository>();
     final String name = settings.displayName;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-      child: Column(
-        children: <Widget>[
-          Row(
+    return ListenableBuilder(
+      listenable: clock,
+      builder: (BuildContext context, Widget? _) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+          child: Column(
             children: <Widget>[
-              CyberAvatar(
-                name: name,
-                imagePath: settings.avatarPath,
-                onTap: () => _editAvatar(context, settings),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    Text(
-                      '${VnClock.greeting}, $name',
-                      style: const TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.neonCyan,
-                        letterSpacing: 0.4,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Row(
+              Row(
+                children: <Widget>[
+                  CyberAvatar(
+                    name: name,
+                    imagePath: settings.avatarPath,
+                    onTap: () => _editAvatar(context, settings),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: <Widget>[
                         Text(
-                          VnClock.weekdayLabel(clock.now),
+                          '${VnClock.greeting}, $name',
                           style: const TextStyle(
-                            fontSize: 9.5,
+                            fontFamily: 'Inter',
+                            fontSize: 12.5,
                             fontWeight: FontWeight.w800,
-                            letterSpacing: 1.3,
-                            color: AppColors.inkFaint,
+                            color: AppColors.neonCyan,
+                            letterSpacing: 0.4,
                           ),
                         ),
-                        const SizedBox(width: 6),
-                        Text(
-                          VnClock.dateLabel(clock.now),
-                          style: const TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.inkDim,
-                          ),
+                        const SizedBox(height: 3),
+                        Row(
+                          children: <Widget>[
+                            Text(
+                              VnClock.weekdayLabel(clock.now),
+                              style: const TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 1.3,
+                                color: AppColors.inkFaint,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              VnClock.dateLabel(clock.now),
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.inkDim,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
-                ),
+                  ),
+                  _HeaderIconButton(
+                    icon: Icons.category_rounded,
+                    label: 'Danh mục',
+                    onTap: onOpenCategories,
+                  ),
+                  const SizedBox(width: 8),
+                  _HeaderIconButton(
+                    icon: Icons.tune_rounded,
+                    label: 'Cài đặt',
+                    onTap: onOpenSettings,
+                  ),
+                ],
               ),
-              _HeaderIconButton(
-                icon: Icons.category_rounded,
-                label: 'Danh mục',
-                onTap: onOpenCategories,
-              ),
-              const SizedBox(width: 8),
-              _HeaderIconButton(
-                icon: Icons.tune_rounded,
-                label: 'Cài đặt',
-                onTap: onOpenSettings,
-              ),
+              const SizedBox(height: 12),
+              _LiveClockStrip(clock: clock),
             ],
           ),
-          const SizedBox(height: 12),
-          _LiveClockStrip(clock: clock),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -241,58 +246,63 @@ class _LiveClockStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppColors.clockStrip,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.glassBorder),
-      ),
-      child: Row(
-        children: <Widget>[
-          Container(
-            width: 6,
-            height: 6,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: AppColors.neonGreen,
-              boxShadow: AppColors.neonGlow(AppColors.neonGreen, blur: 7),
-            ),
+    return ListenableBuilder(
+      listenable: clock,
+      builder: (BuildContext context, Widget? _) {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: AppColors.clockStrip,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.glassBorder),
           ),
-          const SizedBox(width: 8),
-          const Text(
-            'GIỜ VIỆT NAM',
-            style: TextStyle(
-              fontFamily: 'Courier New',
-              fontSize: 9.5,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.4,
-              color: AppColors.inkFaint,
-            ),
+          child: Row(
+            children: <Widget>[
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.neonGreen,
+                  boxShadow: AppColors.neonGlow(AppColors.neonGreen, blur: 7),
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'GIỜ VIỆT NAM',
+                style: TextStyle(
+                  fontFamily: 'Courier New',
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.4,
+                  color: AppColors.inkFaint,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                clock.hms,
+                style: const TextStyle(
+                  fontFamily: 'Courier New',
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.6,
+                  color: AppColors.neonCyan,
+                ),
+              ),
+              const SizedBox(width: 6),
+              const Text(
+                'UTC+7',
+                style: TextStyle(
+                  fontFamily: 'Courier New',
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.inkFaint,
+                ),
+              ),
+            ],
           ),
-          const Spacer(),
-          Text(
-            clock.hms,
-            style: const TextStyle(
-              fontFamily: 'Courier New',
-              fontSize: 16,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1.6,
-              color: AppColors.neonCyan,
-            ),
-          ),
-          const SizedBox(width: 6),
-          const Text(
-            'UTC+7',
-            style: TextStyle(
-              fontFamily: 'Courier New',
-              fontSize: 9,
-              fontWeight: FontWeight.w700,
-              color: AppColors.inkFaint,
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
