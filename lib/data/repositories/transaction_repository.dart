@@ -86,6 +86,32 @@ class TransactionRepository {
   Future<List<({DateTime month, int total})>> yearlyExpenses(int year) =>
       _dao.yearlyExpenses(year);
 
+  /// One page of transactions in a window, newest first.
+  Future<List<Transaction>> pageInRange({
+    required DateTime from,
+    required DateTime to,
+    int limit = 60,
+    ({int occurredAtMs, int id})? before,
+  }) =>
+      _dao.pageInRange(
+        from: from,
+        to: to,
+        limit: limit,
+        before: before,
+      );
+
+  Future<PeriodTotals> totalsInRange({
+    required DateTime from,
+    required DateTime to,
+  }) =>
+      _dao.totalsInRange(from: from, to: to);
+
+  Future<Map<DateTime, int>> dailyExpenses({
+    required DateTime from,
+    required DateTime to,
+  }) =>
+      _dao.dailyExpenses(from: from, to: to);
+
   Future<List<Transaction>> recent({int limit = 5}) => _dao.recent(limit: limit);
 
   Future<int> pendingReviewCount() => _dao.countPendingReview();

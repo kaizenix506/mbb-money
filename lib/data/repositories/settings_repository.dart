@@ -119,6 +119,26 @@ class SettingsRepository extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ----------------------------------------------------------- webhook
+
+  static const String _kWebhookUrl = 'webhook.url';
+
+  /// Base URL of the relay Worker (see `webhook/README.md`). Null when unused.
+  String? get webhookUrl {
+    final String? v = _prefs.getString(_kWebhookUrl);
+    return (v == null || v.trim().isEmpty) ? null : v.trim();
+  }
+
+  Future<void> setWebhookUrl(String? url) async {
+    final String v = (url ?? '').trim();
+    if (v.isEmpty) {
+      await _prefs.remove(_kWebhookUrl);
+    } else {
+      await _prefs.setString(_kWebhookUrl, v);
+    }
+    notifyListeners();
+  }
+
   /// Drives the "có N giao dịch cần phân loại" nudge on the overview.
   static bool looksLikeMbNotice(String text) {
     // Kept here only so settings can show a live preview of the parser.

@@ -141,6 +141,82 @@ class TransactionDao {
     return rows.map(Transaction.fromMap).toList(growable: false);
   }
 
+  /// One page of rows inside `[from, to)`, newest first.
+  ///
+  /// Keyset pagination rather than OFFSET: [before] is the cursor from the
+  /// previous page, so a SePay sync that inserts rows mid-scroll cannot cause
+  /// duplicates or skips. The tuple comparison mirrors the ORDER BY exactly.
+  Future<List<Transaction>> pageInRange({
+    required DateTime from,
+    required DateTime to,
+    int limit = 60,
+    ({int occurredAtMs, int id})? before,
+  }) async {
+    final Database db = await _db;
+    final List<String> where = <String>['occurred_at >= ?', 'occurred_at < ?'];
+    final List<Object?> args = <Object?>[
+      from.millisecondsSinceEpoch,
+      to.millisecondsSinceEpoch,
+    ];
+
+    if (before != null) {
+      where.add('(occurred_at < ? OR (occurred_at = ? AND id < ?))');
+      args.addAll(<Object?>[before.occurredAtMs, before.occurredAtMs, before.id]);
+    }
+
+    final List<Map<String, Object?>> rows = await db.query(
+      'transactions',
+      where: where.join(' AND '),
+      whereArgs: args,
+      orderBy: 'occurred_at DESC, id DESC',
+      limit: limit,
+    );
+    return rows.map(Transaction.fromMap).toList(growable: false);
+  }
+
+  /// Income/expense/count totals for `[from, to)` — the same shape as
+  /// [totals], but named for the range picker so call sites read clearly.
+  Future<PeriodTotals> totalsInRange({
+    required DateTime from,
+    required DateTime to,
+  }) =>
+      totals(from: from, to: to);
+
+  /// Expense per day for `[from, to)`, keyed by the local calendar day.
+  ///
+  /// Used by the transactions tab to show a sparkline for the selected window.
+  /// Days with no spending are absent from the result; the caller fills gaps.
+  Future<Map<DateTime, int>> dailyExpenses({
+    required DateTime from,
+    required DateTime to,
+  }) async {
+    final Database db = await _db;
+    final List<Map<String, Object?>> rows = await db.rawQuery(
+      '''
+      SELECT strftime('%Y-%m-%d', occurred_at / 1000, 'unixepoch', 'localtime') AS d,
+             SUM(amount) AS total
+      FROM transactions
+      WHERE type = 'expense' AND occurred_at >= ? AND occurred_at < ?
+      GROUP BY d
+      ''',
+      <Object?>[from.millisecondsSinceEpoch, to.millisecondsSinceEpoch],
+    );
+
+    final Map<DateTime, int> out = <DateTime, int>{};
+    for (final Map<String, Object?> r in rows) {
+      final String? key = r['d'] as String?;
+      final List<String>? parts = key?.split('-');
+      if (parts == null || parts.length != 3) continue;
+      final DateTime day = DateTime(
+        int.parse(parts[0]),
+        int.parse(parts[1]),
+        int.parse(parts[2]),
+      );
+      out[day] = (r['total'] as num?)?.toInt() ?? 0;
+    }
+    return out;
+  }
+
   Future<List<Transaction>> recent({int limit = 5}) async {
     final Database db = await _db;
     final List<Map<String, Object?>> rows = await db.query(

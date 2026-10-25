@@ -1,0 +1,15 @@
+name = "mbb-money-webhook"
+main = "src/index.js"
+compatibility_date = "2024-11-01"
+
+# Free-tier friendly: Workers free plan covers 100k requests/day, which is far
+# beyond a personal finance inbox.
+#
+# Replace the id below with the output of:
+#   wrangler kv namespace create INBOX
+[[kv_namespaces]]
+binding = "INBOX"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
+[observability]
+enabled = true

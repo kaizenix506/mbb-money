@@ -124,6 +124,45 @@ class SecretStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ---------------------------------------------------------- webhook token
+
+  static const String _kWebhookToken = 'webhook.pull.token';
+  String? _webhookCached;
+
+  Future<String?> readWebhookPullToken() async {
+    if (!_loaded) await load();
+    if (_webhookCached != null) return _webhookCached;
+    try {
+      _webhookCached = await _storage.read(key: _kWebhookToken);
+    } catch (_) {}
+    _prefs ??= await SharedPreferences.getInstance();
+    _webhookCached ??= _prefs?.getString(_kWebhookToken);
+    return _webhookCached;
+  }
+
+  Future<void> saveWebhookPullToken(String token) async {
+    final String trimmed = token.trim();
+    _webhookCached = trimmed;
+    _prefs ??= await SharedPreferences.getInstance();
+    try {
+      await _storage.write(key: _kWebhookToken, value: trimmed);
+    } catch (e) {
+      debugPrint('Failed to write webhook token to SecureStorage: $e');
+    }
+    await _prefs?.setString(_kWebhookToken, trimmed);
+    notifyListeners();
+  }
+
+  Future<void> clearWebhookPullToken() async {
+    try {
+      await _storage.delete(key: _kWebhookToken);
+    } catch (_) {}
+    _prefs ??= await SharedPreferences.getInstance();
+    await _prefs?.remove(_kWebhookToken);
+    _webhookCached = null;
+    notifyListeners();
+  }
+
   String get maskedSepayToken {
     final String? t = _sepayCached;
     if (t == null || t.length < 8) return '••••••••';

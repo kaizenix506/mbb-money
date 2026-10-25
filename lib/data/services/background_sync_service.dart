@@ -11,6 +11,7 @@ import '../repositories/settings_repository.dart';
 import '../repositories/sync_service.dart';
 import '../repositories/transaction_repository.dart';
 import 'notification_service.dart';
+import 'webhook_ingest_service.dart';
 
 /// Keeps SePay polling alive while the app is backgrounded.
 ///
@@ -31,17 +32,20 @@ class BackgroundSyncService with WidgetsBindingObserver {
     required SettingsRepository settings,
     required TransactionRepository repository,
     required TransactionDao dao,
+    WebhookIngestService? webhook,
   })  : _sync = sync,
         _secrets = secrets,
         _settings = settings,
         _repository = repository,
-        _dao = dao;
+        _dao = dao,
+        _webhook = webhook;
 
   final SyncService _sync;
   final SecretStore _secrets;
   final SettingsRepository _settings;
   final TransactionRepository _repository;
   final TransactionDao _dao;
+  final WebhookIngestService? _webhook;
 
   Timer? _timer;
   bool _busy = false;
@@ -113,19 +117,29 @@ class BackgroundSyncService with WidgetsBindingObserver {
 
     _busy = true;
     try {
+      // Webhook inbox first: those rows already carry the authoritative SePay id
+      // and arrive without an API call. Whatever is left (a nested app that was
+      // closed while the webhook was not yet configured) comes from polling.
+      int added = 0;
+      if (_webhook != null) {
+        final WebhookPullReport report = await _webhook.pull();
+        added += report.added;
+      }
+
       final SyncReport report = await _sync.syncSepay();
+      added += report.added;
       _lastRun = VnClock.now();
       _consecutiveFailures = 0;
 
-      if (report.added > 0) {
+      if (added > 0) {
         await _settings.markSynced(VnClock.now());
 
         if (_settings.balanceAlertsEnabled) {
           final int pending = await _dao.countPendingReview();
           await NotificationService.instance.notifyBalanceChanged(
-            newCount: report.added,
+            newCount: added,
             total: pending,
-            sample: report.added == 1 ? 'Khoản mới' : null,
+            sample: added == 1 ? 'Khoản mới' : null,
           );
         }
       }

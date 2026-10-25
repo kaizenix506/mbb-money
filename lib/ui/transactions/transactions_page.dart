@@ -7,20 +7,55 @@ import '../../data/models/category.dart';
 import '../../data/models/transaction.dart';
 import '../add/add_transaction_sheet.dart';
 import '../stores/transaction_store.dart';
-import '../widgets/charts.dart';
 import '../widgets/common.dart';
 import '../widgets/mini_chip.dart';
+import 'range_selector.dart';
 
-/// Full transaction list for the selected month, grouped by day with a running
-/// day total — mirrors how people actually reconcile a bank statement.
-class TransactionsPage extends StatelessWidget {
+/// Full transaction list for the selected time window, grouped by day with a
+/// running day total — mirrors how people actually reconcile a bank statement.
+///
+/// The window is chosen with [RangeSelector] (7 ngày → 5 năm) rather than the
+/// calendar month used by the overview: reading history is a "last N days"
+/// question, while budgeting is a "this month" question.
+class TransactionsPage extends StatefulWidget {
   const TransactionsPage({super.key});
+
+  @override
+  State<TransactionsPage> createState() => _TransactionsPageState();
+}
+
+class _TransactionsPageState extends State<TransactionsPage> {
+  final ScrollController _scroll = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scroll.removeListener(_onScroll);
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  /// Fires the next page a little before the bottom so scrolling feels endless.
+  void _onScroll() {
+    if (!_scroll.hasClients) return;
+    final double remaining = _scroll.position.maxScrollExtent - _scroll.position.pixels;
+    if (remaining < 900) {
+      context.read<TransactionStore>().loadMoreRange();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final TransactionStore store = context.watch<TransactionStore>();
     final List<({DateTime day, List<Transaction> items, int dayTotal})> groups =
-        store.groupedByDay;
+        store.rangeGroupedByDay;
+    final int rowCount =
+        groups.fold<int>(0, (int n, var g) => n + g.items.length);
 
     return SafeArea(
       bottom: false,
@@ -29,6 +64,7 @@ class TransactionsPage extends StatelessWidget {
         color: AppColors.mint,
         backgroundColor: AppColors.bgMid,
         child: CustomScrollView(
+          controller: _scroll,
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: <Widget>[
             SliverToBoxAdapter(
@@ -49,27 +85,12 @@ class TransactionsPage extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 4),
-                          // Same swipe/pick affordance as reports: tap the month
-                          // to jump anywhere in history.
-                          GestureDetector(
-                            onTap: () => showMonthPicker(context, store),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: <Widget>[
-                                Text(
-                                  Fmt.monthYear(store.month),
-                                  style: const TextStyle(
-                                    fontSize: 12.5,
-                                    color: AppColors.inkDim,
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                const Icon(
-                                  Icons.expand_more_rounded,
-                                  size: 14,
-                                  color: AppColors.inkFaint,
-                                ),
-                              ],
+                          Text(
+                            '${store.range.describe(DateTime.now())} · '
+                            '$rowCount khoản',
+                            style: const TextStyle(
+                              fontSize: 12.5,
+                              color: AppColors.inkDim,
                             ),
                           ),
                         ],
@@ -77,10 +98,12 @@ class TransactionsPage extends StatelessWidget {
                     ),
                     IconButton(
                       tooltip: 'Quản lý danh mục',
-                      icon: const Icon(Icons.folder_rounded, color: AppColors.neonCyan, size: 21),
-                      onPressed: () => Navigator.of(context).pushNamed('/categories'),
+                      icon: const Icon(Icons.folder_rounded,
+                          color: AppColors.neonCyan, size: 21),
+                      onPressed: () =>
+                          Navigator.of(context).pushNamed('/categories'),
                     ),
-                    if (store.isLoading)
+                    if (store.rangeLoading)
                       const SizedBox(
                         width: 18,
                         height: 18,
@@ -93,12 +116,19 @@ class TransactionsPage extends StatelessWidget {
                 ),
               ),
             ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 14, bottom: 12),
+                child: const RangeSelector(),
+              ),
+            ),
+            SliverToBoxAdapter(child: _RangeSummary(store: store)),
             if (groups.isEmpty)
               SliverFillRemaining(
                 hasScrollBody: false,
                 child: EmptyHint(
                   icon: Icons.inbox_rounded,
-                  title: 'Tháng này chưa có giao dịch',
+                  title: 'Chưa có giao dịch trong ${store.range.label}',
                   subtitle: 'Mọi khoản thu chi sẽ hiện ở đây, kể cả khi '
                       'đến từ tin nhắn MB Bank.',
                   action: FilledButton.icon(
@@ -116,8 +146,166 @@ class TransactionsPage extends StatelessWidget {
               for (final ({DateTime day, List<Transaction> items, int dayTotal}) g
                   in groups)
                 SliverToBoxAdapter(child: _DaySection(group: g)),
+            SliverToBoxAdapter(
+              child: _RangeFooter(
+                hasMore: store.rangeHasMore,
+                loading: store.rangeLoadingMore,
+                onLoadMore: store.loadMoreRange,
+              ),
+            ),
             const SliverToBoxAdapter(child: SizedBox(height: 120)),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Income / expense / net for the chosen window, so the list answers
+/// "how much did I spend in the last 2 years" without opening reports.
+class _RangeSummary extends StatelessWidget {
+  const _RangeSummary({required this.store});
+
+  final TransactionStore store;
+
+  @override
+  Widget build(BuildContext context) {
+    final totals = store.rangeTotals;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
+      child: GlassCard(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        radius: AppRadius.list,
+        child: Row(
+          children: <Widget>[
+            _Stat(
+              label: 'Chi',
+              value: Fmt.dong(totals.expense),
+              color: AppColors.neonPink,
+            ),
+            _Divider(),
+            _Stat(
+              label: 'Thu',
+              value: Fmt.dong(totals.income),
+              color: AppColors.neonGreen,
+            ),
+            _Divider(),
+            _Stat(
+              label: 'Còn lại',
+              value: Fmt.signed(totals.net),
+              color: totals.net >= 0 ? AppColors.neonCyan : AppColors.neonOrange,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Divider extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 1,
+      height: 26,
+      margin: const EdgeInsets.symmetric(horizontal: 10),
+      color: AppColors.strokeFaint,
+    );
+  }
+}
+
+class _Stat extends StatelessWidget {
+  const _Stat({required this.label, required this.value, required this.color});
+
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1,
+              color: AppColors.inkFaint,
+            ),
+          ),
+          const SizedBox(height: 3),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              value,
+              maxLines: 1,
+              style: TextStyle(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w800,
+                color: color,
+                fontFeatures: const <FontFeature>[
+                  FontFeature.tabularFigures(),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// End-of-list control: loads more on demand, or states that history is
+/// exhausted so a long scroll never looks like a hang.
+class _RangeFooter extends StatelessWidget {
+  const _RangeFooter({
+    required this.hasMore,
+    required this.loading,
+    required this.onLoadMore,
+  });
+
+  final bool hasMore;
+  final bool loading;
+  final Future<void> Function() onLoadMore;
+
+  @override
+  Widget build(BuildContext context) {
+    if (loading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 22),
+        child: Center(
+          child: SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.mint),
+          ),
+        ),
+      );
+    }
+    if (hasMore) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Center(
+          child: TextButton(
+            onPressed: onLoadMore,
+            child: const Text(
+              'Tải thêm',
+              style: TextStyle(fontSize: 12, color: AppColors.neonCyan),
+            ),
+          ),
+        ),
+      );
+    }
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 18),
+      child: Center(
+        child: Text(
+          'Đã hết lịch sử trong khoảng này',
+          style: TextStyle(fontSize: 11, color: AppColors.inkFaint),
         ),
       ),
     );

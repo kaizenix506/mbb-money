@@ -23,6 +23,7 @@ import 'data/repositories/transaction_repository.dart';
 import 'data/services/background_sync_service.dart';
 import 'data/services/cyber_ai_service.dart';
 import 'data/services/notification_service.dart';
+import 'data/services/webhook_ingest_service.dart';
 import 'data/stores/category_store.dart';
 import 'ui/stores/transaction_store.dart';
 
@@ -78,12 +79,19 @@ Future<void> main() async {
   final NotificationService notifications = NotificationService.instance;
   unawaited(notifications.init());
 
+  final WebhookIngestService webhook = WebhookIngestService(
+    secrets: secrets,
+    settings: settings,
+    transactions: repo,
+  );
+
   final BackgroundSyncService worker = BackgroundSyncService(
     sync: sync,
     secrets: secrets,
     settings: settings,
     repository: repo,
     dao: dao,
+    webhook: webhook,
   );
   unawaited(worker.start());
 
@@ -99,6 +107,7 @@ Future<void> main() async {
         Provider<SyncService>.value(value: sync),
         Provider<DeepLinkHandler>.value(value: links),
         Provider<BackgroundSyncService>.value(value: worker),
+        Provider<WebhookIngestService>.value(value: webhook),
       ],
       child: const MbbMoneyApp(),
     ),

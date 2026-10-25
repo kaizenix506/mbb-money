@@ -7,6 +7,7 @@ import '../../data/repositories/secret_store.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../data/repositories/sync_service.dart';
 import '../../data/services/notification_service.dart';
+import '../../data/services/webhook_ingest_service.dart';
 import '../stores/transaction_store.dart';
 import '../widgets/common.dart';
 
@@ -96,7 +97,12 @@ class _SettingsPageState extends State<SettingsPage> {
           _CyberNotificationsCard(settings: settings),
           const SizedBox(height: 24),
 
-          // Section 4: Data Management
+          // Section 4: Webhook relay — the always-on ingest path.
+          _SectionTitle('WEBHOOK TỨC THÌ (KHI APP ĐÃ TẮT)'),
+          const _CyberWebhookCard(),
+          const SizedBox(height: 24),
+
+          // Section 5: Data Management
           _SectionTitle('DỮ LIỆU & BỘ NHỚ LOCAL'),
           _CyberDataCard(),
         ],
@@ -528,6 +534,256 @@ class _CyberAiConfigCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Server-side relay configuration.
+///
+/// Explains itself in-place because the concept is not obvious: iOS cannot keep
+/// the app listening for a bank push, so SePay pushes to a Worker and the app
+/// drains that Worker's inbox on every start.
+class _CyberWebhookCard extends StatefulWidget {
+  const _CyberWebhookCard();
+
+  @override
+  State<_CyberWebhookCard> createState() => _CyberWebhookCardState();
+}
+
+class _CyberWebhookCardState extends State<_CyberWebhookCard> {
+  late final TextEditingController _url;
+  late final TextEditingController _token;
+  bool _busy = false;
+  String? _result;
+  bool _ok = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final SettingsRepository settings = context.read<SettingsRepository>();
+    _url = TextEditingController(text: settings.webhookUrl ?? '');
+    _token = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _url.dispose();
+    _token.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    setState(() {
+      _busy = true;
+      _result = null;
+    });
+    final SettingsRepository settings = context.read<SettingsRepository>();
+    final SecretStore secrets = context.read<SecretStore>();
+
+    await settings.setWebhookUrl(_url.text);
+    if (_token.text.trim().isNotEmpty) {
+      await secrets.saveWebhookPullToken(_token.text);
+      _token.clear();
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _ok = true;
+      _result = 'Đã lưu. Webhook sẽ được kéo mỗi lần app mở.';
+    });
+  }
+
+  Future<void> _test() async {
+    setState(() {
+      _busy = true;
+      _result = null;
+    });
+    final SettingsRepository settings = context.read<SettingsRepository>();
+    final SecretStore secrets = context.read<SecretStore>();
+
+    await settings.setWebhookUrl(_url.text);
+    if (_token.text.trim().isNotEmpty) {
+      await secrets.saveWebhookPullToken(_token.text);
+      _token.clear();
+    }
+
+    final WebhookIngestService svc = context.read<WebhookIngestService>();
+    final WebhookPullReport report = await svc.pull();
+
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _ok = report.ok;
+      _result = report.ok
+          ? (report.isEmpty
+              ? 'Kết nối OK · hộp thư trống'
+              : 'Kết nối OK · nhận ${report.received}, thêm ${report.added}')
+          : report.error;
+    });
+
+    if (report.added > 0 && mounted) {
+      await context.read<TransactionStore>().refresh();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final SettingsRepository settings = context.watch<SettingsRepository>();
+    final bool configured = settings.webhookUrl != null;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppRadius.card),
+        color: AppColors.glassPanel,
+        border: Border.all(
+          color: configured ? AppColors.neonGreen : AppColors.glassBorder,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Icon(
+                configured
+                    ? Icons.cloud_done_rounded
+                    : Icons.cloud_off_rounded,
+                size: 16,
+                color: configured ? AppColors.neonGreen : AppColors.inkFaint,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  configured
+                      ? 'ĐANG DÙNG WEBHOOK'
+                      : 'CHƯA CẤU HÌNH WEBHOOK',
+                  style: TextStyle(
+                    fontFamily: 'Courier New',
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.2,
+                    color: configured ? AppColors.neonGreen : AppColors.inkFaint,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'iOS không cho app nghe ngân hàng khi đã đóng. SePay sẽ đẩy giao dịch '
+            'sang một endpoint luôn thức, app chỉ việc kéo về khi mở lên — '
+            'nhờ vậy không mất khoản nào.',
+            style: TextStyle(fontSize: 11.5, height: 1.45, color: AppColors.inkDim),
+          ),
+          const SizedBox(height: 14),
+          _WebhookField(
+            controller: _url,
+            label: 'Địa chỉ Worker',
+            hint: 'https://mbb-money-webhook.xxx.workers.dev',
+          ),
+          const SizedBox(height: 10),
+          _WebhookField(
+            controller: _token,
+            label: 'Pull token',
+            hint: configured ? 'Đã lưu · nhập lại để đổi' : 'APP_PULL_TOKEN',
+            obscure: true,
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _busy ? null : _test,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.neonCyan,
+                    side: const BorderSide(color: AppColors.neonCyan),
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                  ),
+                  child: const Text('Kiểm tra', style: TextStyle(fontSize: 12.5)),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: FilledButton(
+                  onPressed: _busy ? null : _save,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.neonCyan,
+                    foregroundColor: const Color(0xFF04231A),
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                  ),
+                  child: _busy
+                      ? const SizedBox(
+                          width: 15,
+                          height: 15,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Color(0xFF04231A),
+                          ),
+                        )
+                      : const Text('Lưu', style: TextStyle(fontSize: 12.5)),
+                ),
+              ),
+            ],
+          ),
+          if (_result != null) ...<Widget>[
+            const SizedBox(height: 10),
+            Text(
+              _result!,
+              style: TextStyle(
+                fontSize: 11.5,
+                color: _ok ? AppColors.neonGreen : AppColors.coral,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _WebhookField extends StatelessWidget {
+  const _WebhookField({
+    required this.controller,
+    required this.label,
+    required this.hint,
+    this.obscure = false,
+  });
+
+  final TextEditingController controller;
+  final String label;
+  final String hint;
+  final bool obscure;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      obscureText: obscure,
+      autocorrect: false,
+      enableSuggestions: false,
+      style: const TextStyle(fontSize: 12.5, color: AppColors.ink),
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        labelStyle: const TextStyle(fontSize: 11.5, color: AppColors.inkDim),
+        hintStyle: const TextStyle(fontSize: 11.5, color: AppColors.inkFaint),
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: AppColors.glassBorder),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: AppColors.glassBorder),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: AppColors.neonCyan),
+        ),
       ),
     );
   }

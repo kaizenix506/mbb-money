@@ -4,6 +4,7 @@ import '../../core/formatters.dart';
 import '../../data/db/transaction_dao.dart';
 import '../../data/models/category.dart';
 import '../../data/models/transaction.dart';
+import '../../data/models/tx_range.dart';
 import '../../data/repositories/transaction_repository.dart';
 
 /// Mutable screen state for the overview and transaction list.
@@ -27,6 +28,18 @@ class TransactionStore extends ChangeNotifier {
       const <({DateTime month, int total})>[];
   int _pendingReview = 0;
 
+  // --------------------------------------------------- range list (tab 2)
+
+  /// Window selected on the transactions tab. Independent of [_month] on
+  /// purpose: scrolling five years of history must not move the overview.
+  TxRange _range = TxRange.months1;
+  List<Transaction> _rangeRows = const <Transaction>[];
+  PeriodTotals _rangeTotals = PeriodTotals.empty;
+  Map<DateTime, int> _rangeDaily = const <DateTime, int>{};
+  bool _rangeLoading = true;
+  bool _rangeLoadingMore = false;
+  bool _rangeHasMore = true;
+
   // ------------------------------------------------------------------ reads
 
   DateTime get month => _month;
@@ -47,9 +60,40 @@ class TransactionStore extends ChangeNotifier {
 
   /// Rows grouped by calendar day, in display order (newest first).
   /// The overview and the full list both render from this.
-  List<({DateTime day, List<Transaction> items, int dayTotal})> get groupedByDay {
+  List<({DateTime day, List<Transaction> items, int dayTotal})> get groupedByDay =>
+      _groupByDay(_monthTransactions);
+
+  // --------------------------------------------------------- range getters
+
+  TxRange get range => _range;
+  List<Transaction> get rangeRows => _rangeRows;
+  PeriodTotals get rangeTotals => _rangeTotals;
+  Map<DateTime, int> get rangeDaily => _rangeDaily;
+  bool get rangeLoading => _rangeLoading;
+  bool get rangeLoadingMore => _rangeLoadingMore;
+  bool get rangeHasMore => _rangeHasMore;
+
+  /// Window bounds for the selected range, recomputed on read so a change of
+  /// day (app left open overnight) shifts the window without extra state.
+  ({DateTime from, DateTime to}) get rangeWindow =>
+      _range.windowAt(DateTime.now());
+
+  /// The range rows grouped by day, mirroring [groupedByDay].
+  List<({DateTime day, List<Transaction> items, int dayTotal})> get
+      rangeGroupedByDay => _groupByDay(_rangeRows);
+
+  /// Days between the oldest row and today, so the UI can say how far back the
+  /// loaded data actually reaches versus the requested window.
+  int get rangeLoadedDays {
+    if (_rangeRows.isEmpty) return 0;
+    return DateTime.now().difference(_rangeRows.last.occurredAt).inDays + 1;
+  }
+
+  List<({DateTime day, List<Transaction> items, int dayTotal})> _groupByDay(
+    List<Transaction> source,
+  ) {
     final Map<DateTime, List<Transaction>> buckets = <DateTime, List<Transaction>>{};
-    for (final Transaction t in _monthTransactions) {
+    for (final Transaction t in source) {
       final DateTime d =
           DateTime(t.occurredAt.year, t.occurredAt.month, t.occurredAt.day);
       (buckets[d] ??= <Transaction>[]).add(t);
@@ -108,9 +152,13 @@ class TransactionStore extends ChangeNotifier {
     _totals = results[2] as PeriodTotals;
     _byCategory = results[3] as List<CategoryTotal>;
     final List<({DateTime month, int total})> series =
-        await _repo.trailingExpenses(DateTime.now());
+        results[4] as List<({DateTime month, int total})>;
     _trailing = series;
     _pendingReview = results[5] as int;
+
+    // Range rows are loaded separately: they resolve to void, and bundling a
+    // void future into the typed batch above is what the analyser rejects.
+    await _loadRangeFirstPage();
   }
 
   Future<void> goToMonth(DateTime target) async {
@@ -119,6 +167,80 @@ class TransactionStore extends ChangeNotifier {
   }
 
   Future<void> previousMonth() => goToMonth(Fmt.previousMonth(_month));
+
+  // ------------------------------------------------------------ range list
+
+  /// Incremented on every range change so a slow response for the previous
+  /// range cannot overwrite the rows of the new one.
+  int _rangeGeneration = 0;
+
+  /// Switches the transactions tab to [next] and loads its first page.
+  Future<void> setRange(TxRange next) async {
+    if (next == _range && _rangeRows.isNotEmpty) return;
+    _range = next;
+    _rangeLoading = true;
+    _rangeLoadingMore = false;
+    _rangeHasMore = true;
+    _rangeRows = const <Transaction>[];
+    _rangeDaily = const <DateTime, int>{};
+    notifyListeners();
+
+    await _loadRangeFirstPage();
+    _rangeLoading = false;
+    notifyListeners();
+  }
+
+  /// Loads the next older page. Safe to call repeatedly; it self-guards.
+  Future<void> loadMoreRange() async {
+    if (_rangeLoadingMore || !_rangeHasMore || _rangeRows.isEmpty) return;
+    _rangeLoadingMore = true;
+    notifyListeners();
+
+    final int generation = _rangeGeneration;
+    final ({DateTime from, DateTime to}) w = rangeWindow;
+    final Transaction last = _rangeRows.last;
+
+    try {
+      final List<Transaction> page = await _repo.pageInRange(
+        from: w.from,
+        to: w.to,
+        limit: 60,
+        before: (
+          occurredAtMs: last.occurredAt.millisecondsSinceEpoch,
+          id: last.id,
+        ),
+      );
+      if (generation != _rangeGeneration) return;
+      _rangeRows = <Transaction>[..._rangeRows, ...page];
+      _rangeHasMore = page.length == 60;
+    } on Object {
+      if (generation == _rangeGeneration) _rangeHasMore = false;
+    } finally {
+      if (generation == _rangeGeneration) {
+        _rangeLoadingMore = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  /// First page + totals + daily series for the current range.
+  Future<void> _loadRangeFirstPage() async {
+    final int generation = ++_rangeGeneration;
+    final ({DateTime from, DateTime to}) w = rangeWindow;
+
+    final List<Object> results = await Future.wait<Object>(<Future<Object>>[
+      _repo.pageInRange(from: w.from, to: w.to, limit: 60),
+      _repo.totalsInRange(from: w.from, to: w.to),
+      _repo.dailyExpenses(from: w.from, to: w.to),
+    ]);
+    if (generation != _rangeGeneration) return;
+
+    final List<Transaction> page = results[0] as List<Transaction>;
+    _rangeRows = page;
+    _rangeTotals = results[1] as PeriodTotals;
+    _rangeDaily = results[2] as Map<DateTime, int>;
+    _rangeHasMore = page.length == 60;
+  }
 
   Future<void> nextMonth() async {
     if (!canGoForward) return;
