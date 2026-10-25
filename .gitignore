@@ -54,3 +54,7 @@ analyze_v2.txt
 
 # Local test scratch output
 suite*.txt
+
+# Temporary test outputs
+*.txt
+!webhook/README.md
