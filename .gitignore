@@ -51,3 +51,6 @@ symbols/
 build_out.txt
 test_gemini.py
 analyze_v2.txt
+
+# Local test scratch output
+suite*.txt
