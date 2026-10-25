@@ -30,6 +30,19 @@ migrate_working_dir/
 .pub/
 /build/
 
+# iOS generated files (MUST NOT be committed, they contain local paths)
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+ios/Runner/GeneratedPluginRegistrant.h
+ios/Runner/GeneratedPluginRegistrant.m
+ios/Podfile.lock
+ios/Pods/
+ios/.symlinks/
+
+# Android generated files
+android/local.properties
+android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+
 # Symbol processing
 symbols/
 
