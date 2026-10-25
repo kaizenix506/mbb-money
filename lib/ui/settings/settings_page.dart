@@ -9,7 +9,6 @@ import '../../data/repositories/sync_service.dart';
 import '../../data/services/notification_service.dart';
 import '../../data/services/webhook_ingest_service.dart';
 import '../stores/transaction_store.dart';
-import '../widgets/common.dart';
 
 /// Cyberpunk Settings Screen:
 /// - 100% focused on SePay API Token (Shortcut feature stripped completely)
@@ -71,7 +70,7 @@ class _SettingsPageState extends State<SettingsPage> {
         padding: const EdgeInsets.fromLTRB(18, 8, 18, 40),
         children: <Widget>[
           // Section 1: SePay MB Bank Integration
-          _SectionTitle('ĐỒNG BỘ SEPAY (MB BANK)'),
+          const _SectionTitle('ĐỒNG BỘ SEPAY (MB BANK)'),
           _CyberSepayCard(
             settings: settings,
             secrets: secrets,
@@ -88,22 +87,22 @@ class _SettingsPageState extends State<SettingsPage> {
           const SizedBox(height: 24),
 
           // Section 2: AI Neural Engine Key (Optional)
-          _SectionTitle('A.R.I.A CYBER AI NEURAL CORE'),
+          const _SectionTitle('A.R.I.A CYBER AI NEURAL CORE'),
           _CyberAiConfigCard(controller: _geminiCtrl),
           const SizedBox(height: 24),
 
           // Section 3: Notifications
-          _SectionTitle('NHẮC NHỞ BIẾN ĐỘNG SỐ DƯ'),
+          const _SectionTitle('NHẮC NHỞ BIẾN ĐỘNG SỐ DƯ'),
           _CyberNotificationsCard(settings: settings),
           const SizedBox(height: 24),
 
           // Section 4: Webhook relay — the always-on ingest path.
-          _SectionTitle('WEBHOOK TỨC THÌ (KHI APP ĐÃ TẮT)'),
+          const _SectionTitle('WEBHOOK TỨC THÌ (KHI APP ĐÃ TẮT)'),
           const _CyberWebhookCard(),
           const SizedBox(height: 24),
 
           // Section 5: Data Management
-          _SectionTitle('DỮ LIỆU & BỘ NHỚ LOCAL'),
+          const _SectionTitle('DỮ LIỆU & BỘ NHỚ LOCAL'),
           _CyberDataCard(),
         ],
       ),

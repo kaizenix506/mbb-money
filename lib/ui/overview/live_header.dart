@@ -371,7 +371,7 @@ class _AvatarAction extends StatelessWidget {
                 ),
               ),
             ),
-            Icon(Icons.chevron_right_rounded,
+            const Icon(Icons.chevron_right_rounded,
                 size: 18, color: AppColors.inkFaint),
           ],
         ),

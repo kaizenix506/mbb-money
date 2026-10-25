@@ -1,4 +1,3 @@
-import 'dart:ui' show FontFeature;
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -239,7 +238,7 @@ class _PeriodPickerButton extends StatelessWidget {
                   ),
                 const Divider(color: AppColors.strokeFaint),
                 const SizedBox(height: 6),
-                Text(
+                const Text(
                   'TỔNG QUAN THEO NĂM',
                   style: TextStyle(
                     fontSize: 10,

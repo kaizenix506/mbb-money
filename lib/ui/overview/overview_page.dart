@@ -7,7 +7,6 @@ import '../../core/formatters.dart';
 import '../../core/theme.dart';
 import '../../core/vn_clock.dart';
 import '../../data/db/transaction_dao.dart';
-import '../../data/models/category.dart';
 import '../../data/models/transaction.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../data/repositories/sync_service.dart';
@@ -477,8 +476,7 @@ class _QuickDetailSheet extends StatelessWidget {
             style: const TextStyle(fontSize: 14, color: AppColors.ink),
           ),
           const SizedBox(height: 18),
-          _DetailRow('Thời gian', Fmt.fullDate(transaction.occurredAt) +
-              ' · ${Fmt.time(transaction.occurredAt)}'),
+          _DetailRow('Thời gian', '${Fmt.fullDate(transaction.occurredAt)} · ${Fmt.time(transaction.occurredAt)}'),
             _DetailRow('Nguồn', transaction.source.badge),
           if (transaction.referenceNumber != null)
             _DetailRow('Mã tham chiếu', transaction.referenceNumber!),

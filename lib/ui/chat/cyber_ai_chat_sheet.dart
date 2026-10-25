@@ -110,7 +110,7 @@ class _CyberAiChatSheetState extends State<CyberAiChatSheet> {
       child: GestureDetector(
         onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
         behavior: HitTestBehavior.opaque,
-        child: Container(
+        child: SizedBox(
         height: MediaQuery.of(context).size.height *
             (viewInsets > 0 ? 0.92 : 0.86),
       child: ClipRRect(
@@ -136,7 +136,7 @@ class _CyberAiChatSheetState extends State<CyberAiChatSheet> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                   decoration: BoxDecoration(
-                    border: Border(bottom: BorderSide(color: AppColors.glassBorder)),
+                    border: const Border(bottom: BorderSide(color: AppColors.glassBorder)),
                     gradient: LinearGradient(
                       colors: [
                         AppColors.neonViolet.withValues(alpha: 0.15),
@@ -256,8 +256,8 @@ class _CyberAiChatSheetState extends State<CyberAiChatSheet> {
                 // Bottom Input
                 Container(
                   padding: const EdgeInsets.fromLTRB(14, 8, 14, 16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xE0050812),
+                  decoration: const BoxDecoration(
+                    color: Color(0xE0050812),
                     border: Border(top: BorderSide(color: AppColors.glassBorder)),
                   ),
                   child: Row(

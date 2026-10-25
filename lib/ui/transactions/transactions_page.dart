@@ -116,10 +116,10 @@ class _TransactionsPageState extends State<TransactionsPage> {
                 ),
               ),
             ),
-            SliverToBoxAdapter(
+            const SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.only(top: 14, bottom: 12),
-                child: const RangeSelector(),
+                padding: EdgeInsets.only(top: 14, bottom: 12),
+                child: RangeSelector(),
               ),
             ),
             SliverToBoxAdapter(child: _RangeSummary(store: store)),

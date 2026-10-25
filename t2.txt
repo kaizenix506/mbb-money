@@ -1,0 +1,5 @@
+00:00 +0: loading C:/Users/Hoang/Documents/Local/test/test/transactions_page_test.dart
+00:00 +0: (setUpAll)
+00:00 +0: renders at iPhone width with no overflow
+00:01 +1: header reports the selected window and a row count
+00:01 +2: empty window shows a helpful empty state, not a blank screen

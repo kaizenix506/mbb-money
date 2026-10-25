@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'core/formatters.dart';
 import 'core/theme.dart';
 import 'main.dart' show DeepLinkHandler;
 import 'ui/add/add_transaction_sheet.dart';

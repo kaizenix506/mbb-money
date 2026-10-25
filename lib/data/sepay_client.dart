@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io' show HttpClient, HttpClientRequest, HttpClientResponse, HttpException, HttpHeaders, SocketException;
 
-import 'package:flutter/material.dart';
 
 /// Lean client for SePay's **user API** (the one that reads your own linked
 /// bank accounts — not the merchant payment-gateway API).

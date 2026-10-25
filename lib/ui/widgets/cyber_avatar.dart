@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:characters/characters.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/theme.dart';

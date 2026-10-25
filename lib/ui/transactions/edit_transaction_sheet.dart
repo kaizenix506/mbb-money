@@ -1,9 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../core/formatters.dart';
 import '../../core/theme.dart';
-import '../../data/models/category.dart';
 import '../../data/models/transaction.dart';
 import '../../data/stores/category_store.dart';
 import '../stores/transaction_store.dart';
@@ -152,7 +150,7 @@ class _EditTransactionSheetState extends State<EditTransactionSheet> {
                   decoration: InputDecoration(
                     filled: true,
                     fillColor: const Color(0x6604060C),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: AppColors.glassBorder)),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.glassBorder)),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   ),
                 ),
@@ -167,7 +165,7 @@ class _EditTransactionSheetState extends State<EditTransactionSheet> {
                   decoration: InputDecoration(
                     filled: true,
                     fillColor: const Color(0x6604060C),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: AppColors.glassBorder)),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.glassBorder)),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   ),
                 ),

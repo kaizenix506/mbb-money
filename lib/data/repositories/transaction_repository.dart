@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart' hide Category;
 
 import '../auto_categorizer.dart';
 import '../db/transaction_dao.dart';
@@ -137,7 +136,6 @@ class TransactionRepository {
     final Category resolved = Category.byId(categoryId) ??
         AutoCategorizer.categorize(description, isIncome: isIncome) ??
         Category.other;
-    assert(resolved != null);
 
     final Transaction draft = Transaction(
       id: Transaction.draftId,

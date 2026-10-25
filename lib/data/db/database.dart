@@ -28,7 +28,7 @@ class AppDatabase {
 
   Future<Database> _openAt(String directory) async {
     final String path = directory.isEmpty
-        ? '$fileName'
+        ? fileName
         : '$directory${directory.endsWith('/') || directory.endsWith(r'\') ? '' : '/'}$fileName';
     return openDatabase(
       path,

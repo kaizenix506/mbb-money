@@ -24,8 +24,8 @@ void main() {
       addTearDown(t.view.reset);
 
       await t.pumpWidget(wrap(
-        NeonDonutChart(
-          slices: const <DonutSlice>[
+        const NeonDonutChart(
+          slices: <DonutSlice>[
             DonutSlice(label: 'Ăn uống', value: 500000, color: AppColors.neonPink),
             DonutSlice(label: 'Đi lại', value: 250000, color: AppColors.neonCyan),
             DonutSlice(label: 'Đồ uống', value: 150000, color: AppColors.neonViolet),

@@ -151,8 +151,7 @@ class _ReviewCard extends StatelessWidget {
                 ),
               ),
               Text(
-                Fmt.dayMonth(transaction.occurredAt) +
-                    ' · ${Fmt.time(transaction.occurredAt)}',
+                '${Fmt.dayMonth(transaction.occurredAt)} · ${Fmt.time(transaction.occurredAt)}',
                 style: const TextStyle(
                   fontSize: 10.5,
                   color: AppColors.inkFaint,

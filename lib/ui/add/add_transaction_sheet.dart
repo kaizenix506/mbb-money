@@ -8,7 +8,6 @@ import '../../data/auto_categorizer.dart';
 import '../../data/models/category.dart';
 import '../../data/models/transaction.dart';
 import '../stores/transaction_store.dart';
-import '../widgets/common.dart';
 import '../widgets/sheet_kit.dart';
 
 /// Quick-add sheet.

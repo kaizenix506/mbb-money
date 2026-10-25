@@ -9,11 +9,9 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sqflite/sqflite.dart' hide Transaction;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart' hide Transaction;
 
 import 'app.dart';
-import 'data/db/database.dart';
 import 'data/db/transaction_dao.dart';
 import 'data/models/transaction.dart';
 import 'data/repositories/secret_store.dart';

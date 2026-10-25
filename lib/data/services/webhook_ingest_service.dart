@@ -135,7 +135,7 @@ class WebhookIngestService {
 
       _lastPull = DateTime.now();
       if (rows.isEmpty) {
-        return WebhookPullReport(added: 0, received: 0);
+        return const WebhookPullReport(added: 0, received: 0);
       }
 
       final int added = await _transactions.ingestSepayRows(rows);

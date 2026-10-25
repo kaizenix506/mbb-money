@@ -1,7 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../core/formatters.dart';
 import '../../core/theme.dart';
 import '../../data/stores/category_store.dart';
 import '../stores/transaction_store.dart';
@@ -238,10 +237,10 @@ class ManageCategoriesPage extends StatelessWidget {
             filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
             child: Container(
               padding: EdgeInsets.fromLTRB(20, 16, 20, 24 + MediaQuery.of(ctx).viewInsets.bottom),
-              decoration: BoxDecoration(
-                color: const Color(0xF20A0F1D),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-                border: const Border(top: BorderSide(color: AppColors.neonCyan, width: 1.4)),
+              decoration: const BoxDecoration(
+                color: Color(0xF20A0F1D),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                border: Border(top: BorderSide(color: AppColors.neonCyan, width: 1.4)),
               ),
               child: SingleChildScrollView(
                 child: Column(

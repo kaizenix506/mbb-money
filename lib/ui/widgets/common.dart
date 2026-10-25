@@ -6,7 +6,6 @@ import '../../core/theme.dart';
 import '../../data/models/category.dart';
 import '../../data/models/transaction.dart';
 import '../../data/models/tx_source.dart';
-import 'share_ring.dart';
 
 export 'share_ring.dart';
 
