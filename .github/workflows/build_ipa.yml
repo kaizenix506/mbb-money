@@ -22,15 +22,15 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Build iOS Frameworks (No Codesign)
-        run: |
-          flutter build ios --config-only
-
-      - name: Build with Xcode (Bypass Provisioning Profile & CodeSign)
+      - name: Prepare iOS Pods
         run: |
           cd ios
-          pod install
-          xcodebuild build \
+          pod install --repo-update
+
+      - name: Build with Xcode (No Codesign / No Team ID)
+        run: |
+          cd ios
+          xcodebuild clean build \
             -workspace Runner.xcworkspace \
             -scheme Runner \
             -configuration Release \
@@ -39,18 +39,26 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
-            DEVELOPMENT_TEAM=""
+            CODE_SIGN_ENTITLEMENTS="" \
+            DEVELOPMENT_TEAM="" \
+            PROVISIONING_PROFILE_SPECIFIER=""
 
       - name: Package Payload into unsigned .ipa
         run: |
           mkdir -p Payload
           APP_PATH=$(find build/ios_derived/Build/Products/Release-iphoneos -name "Runner.app" | head -n 1)
           if [ -z "$APP_PATH" ]; then
-            echo "Runner.app not found!"
+            echo "Runner.app not found in Release-iphoneos, searching build directory:"
             find build -name "*.app"
+            APP_PATH=$(find build -name "Runner.app" | head -n 1)
+          fi
+          
+          if [ -z "$APP_PATH" ]; then
+            echo "Error: No Runner.app found to package!"
             exit 1
           fi
-          echo "Found Runner.app at: $APP_PATH"
+
+          echo "Packaging: $APP_PATH"
           cp -R "$APP_PATH" Payload/
           zip -r -9 MBBMoney_Cyberpunk_ESign.ipa Payload/
           echo "IPA created successfully: $(ls -lh MBBMoney_Cyberpunk_ESign.ipa)"
