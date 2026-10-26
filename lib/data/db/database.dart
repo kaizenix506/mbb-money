@@ -11,7 +11,7 @@ class AppDatabase {
   static final AppDatabase instance = AppDatabase._();
 
   static const String fileName = 'mbb_money.db';
-  static const int version = 1;
+  static const int version = 2;
 
   static final Map<String, Database> _open = <String, Database>{};
 
@@ -97,14 +97,32 @@ class AppDatabase {
       )
     ''');
 
+    await _createInternalTables(db);
     await _seedAccount(db);
   }
 
+  /// Tables the app maintains for itself. They live in the same file as the
+  /// user's data (so a reset can wipe them deliberately) but are never exposed
+  /// in the UI.
+  Future<void> _createInternalTables(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS internal_state (
+        key   TEXT PRIMARY KEY,
+        value TEXT
+      )
+    ''');
+  }
+
   Future<void> _upgrade(Database db, int from, int to) async {
-    // v1 is the initial schema; future migrations append here.
     // Keep this exhaustive so a schema change never silently drops history.
     if (from < 1) {
       await _create(db, to);
+      return;
+    }
+    if (from < 2) {
+      // v2 adds `internal_state`, which stores notification bookkeeping
+      // (e.g. the last announced transaction id).
+      await _createInternalTables(db);
     }
   }
 

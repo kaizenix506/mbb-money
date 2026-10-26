@@ -3,9 +3,9 @@ import 'package:provider/provider.dart';
 
 import '../../core/formatters.dart';
 import '../../core/theme.dart';
-import '../../data/models/category.dart';
 import '../../data/models/transaction.dart';
 import '../add/add_transaction_sheet.dart';
+import '../category_ref.dart';
 import '../stores/transaction_store.dart';
 import '../widgets/common.dart';
 import '../widgets/mini_chip.dart';
@@ -454,16 +454,15 @@ class _TransactionActions extends StatelessWidget {
             spacing: 8,
             runSpacing: 8,
             children: <Widget>[
-              for (final Category category in transaction.isIncome
-                  ? Category.incomeChoices
-                  : Category.expenseChoices)
+              for (final CategoryRef category
+                  in context.categories.choicesFor(isIncome: transaction.isIncome))
                 MiniChip(
                   label: category.label,
                   icon: category.icon,
                   tint: category.tint,
                   selected: transaction.categoryId == category.id,
                   onTap: () async {
-                    await store.setCategory(transaction, category);
+                    await store.setCategoryId(transaction, category.id);
                     if (context.mounted) Navigator.of(context).pop();
                   },
                 ),

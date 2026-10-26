@@ -3,28 +3,28 @@ import 'package:flutter/material.dart';
 
 import '../../core/formatters.dart';
 import '../../core/theme.dart';
-import '../../data/models/category.dart';
 import '../../data/models/transaction.dart';
 import '../../data/models/tx_source.dart';
+import '../category_ref.dart';
 
 export 'share_ring.dart';
 
 /// The little tinted square with a category glyph used on every list row.
 class CategoryTile extends StatelessWidget {
   const CategoryTile({
-    required this.category,
+    this.category,
     this.size = 44,
     this.iconSize = 20,
     super.key,
   });
 
-  final Category? category;
+  final CategoryRef? category;
   final double size;
   final double iconSize;
 
   @override
   Widget build(BuildContext context) {
-    final Category c = category ?? Category.other;
+    final CategoryRef c = category ?? CategoryRef.fallback;
     return Container(
       width: size,
       height: size,
@@ -52,7 +52,9 @@ class TransactionRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Category? cat = Category.byId(transaction.categoryId);
+    // Resolved through the store so a category Hoàng created himself keeps its
+    // own name and icon instead of collapsing into "Chưa phân loại".
+    final CategoryRef? cat = context.categories.resolve(transaction.categoryId);
     final bool income = transaction.isIncome;
 
     final Widget content = Padding(
@@ -93,7 +95,7 @@ class _Middle extends StatelessWidget {
   const _Middle({required this.transaction, required this.cat});
 
   final Transaction transaction;
-  final Category? cat;
+  final CategoryRef? cat;
 
   @override
   Widget build(BuildContext context) {

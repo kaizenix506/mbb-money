@@ -1,14 +1,17 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/formatters.dart';
 import '../../core/theme.dart';
-import '../../data/models/category.dart';
 import '../../data/models/transaction.dart';
 import '../../data/repositories/transaction_repository.dart';
+import '../../data/services/notification_service.dart';
+import '../category_ref.dart';
 import '../stores/transaction_store.dart';
+import '../widgets/category_chip_grid.dart';
 import '../widgets/common.dart';
-import '../widgets/mini_chip.dart';
 
 /// Review queue for rows the parser could not confidently categorise.
 ///
@@ -46,14 +49,17 @@ class _ReviewPageState extends State<ReviewPage> {
     });
   }
 
-  Future<void> _assign(Transaction tx, Category category) async {
-    await context.read<TransactionStore>().setCategory(tx, category);
+  Future<void> _assign(Transaction tx, CategoryRef category) async {
+    await context.read<TransactionStore>().setCategoryId(tx, category.id);
     if (!mounted) return;
-    setState(() {
-      _items = _items
-          ?.where((Transaction t) => t.id != tx.id)
-          .toList(growable: false);
-    });
+    final List<Transaction> remaining = (_items ?? <Transaction>[])
+        .where((Transaction t) => t.id != tx.id)
+        .toList(growable: false);
+    setState(() => _items = remaining);
+    // Nothing left to categorise → take the banner out of the tray too.
+    if (remaining.isEmpty) {
+      unawaited(NotificationService.instance.clearReviewNotifications());
+    }
   }
 
   @override
@@ -113,7 +119,7 @@ class _ReviewPageState extends State<ReviewPage> {
                     final Transaction tx = _items![i];
                     return _ReviewCard(
                       transaction: tx,
-                      onPick: (Category c) => _assign(tx, c),
+                      onPick: (CategoryRef c) => _assign(tx, c),
                     );
                   },
                 ),
@@ -125,13 +131,13 @@ class _ReviewCard extends StatelessWidget {
   const _ReviewCard({required this.transaction, required this.onPick});
 
   final Transaction transaction;
-  final ValueChanged<Category> onPick;
+  final ValueChanged<CategoryRef> onPick;
 
   @override
   Widget build(BuildContext context) {
     final bool income = transaction.isIncome;
-    final List<Category> choices =
-        income ? Category.incomeChoices : Category.expenseChoices;
+    final List<CategoryRef> choices =
+        context.categories.choicesFor(isIncome: income);
 
     return GlassCard(
       child: Column(
@@ -178,19 +184,10 @@ class _ReviewCard extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 14),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: <Widget>[
-              for (final Category c in choices)
-                MiniChip(
-                  label: c.label,
-                  icon: c.icon,
-                  tint: c.tint,
-                  selected: false,
-                  onTap: () => onPick(c),
-                ),
-            ],
+          CategoryChipGrid(
+            categories: choices,
+            selectedId: null,
+            onSelected: onPick,
           ),
         ],
       ),

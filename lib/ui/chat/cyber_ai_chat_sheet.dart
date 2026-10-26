@@ -6,6 +6,7 @@ import '../../core/theme.dart';
 import '../../core/vn_clock.dart';
 import '../../data/models/transaction.dart';
 import '../../data/services/cyber_ai_service.dart';
+import '../category_ref.dart';
 import '../stores/transaction_store.dart';
 import '../transactions/edit_transaction_sheet.dart';
 
@@ -68,10 +69,22 @@ class _CyberAiChatSheetState extends State<CyberAiChatSheet> {
     final txStore = context.read<TransactionStore>();
     final expenses = txStore.monthTransactions.where((t) => t.isExpense).toList();
 
+    // id → label of every category Hoàng actually has, custom ones included,
+    // so the model can answer with one of them instead of falling back to
+    // "Khác".
+    final Map<String, String> labels = <String, String>{
+      for (final CategoryRef c in context.categories.choicesFor(isIncome: false))
+        if (c.id != 'other') c.id: c.label,
+    };
+
     _scrollToBottom();
 
     final started = DateTime.now();
-    final extracted = await aiService.sendMessage(text, currentExpenses: expenses);
+    final extracted = await aiService.sendMessage(
+      text,
+      currentExpenses: expenses,
+      categoryLabels: labels,
+    );
 
     if (!mounted) return;
     if (extracted != null) {

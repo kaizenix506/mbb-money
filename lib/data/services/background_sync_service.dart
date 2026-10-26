@@ -9,7 +9,7 @@ import '../repositories/secret_store.dart';
 import '../repositories/settings_repository.dart';
 import '../repositories/sync_service.dart';
 import '../repositories/transaction_repository.dart';
-import 'notification_service.dart';
+import 'new_transaction_watcher.dart';
 import 'webhook_ingest_service.dart';
 
 /// Keeps SePay polling alive while the app is backgrounded.
@@ -32,12 +32,15 @@ class BackgroundSyncService with WidgetsBindingObserver {
     required TransactionRepository repository,
     required TransactionDao dao,
     WebhookIngestService? webhook,
+    NewTransactionWatcher? watcher,
   })  : _sync = sync,
         _secrets = secrets,
         _settings = settings,
         _repository = repository,
         _dao = dao,
-        _webhook = webhook;
+        _webhook = webhook,
+        _watcher = watcher ??
+            NewTransactionWatcher(dao: dao);
 
   final SyncService _sync;
   final SecretStore _secrets;
@@ -45,6 +48,7 @@ class BackgroundSyncService with WidgetsBindingObserver {
   final TransactionRepository _repository;
   final TransactionDao _dao;
   final WebhookIngestService? _webhook;
+  final NewTransactionWatcher _watcher;
 
   Timer? _timer;
   bool _busy = false;
@@ -134,12 +138,10 @@ class BackgroundSyncService with WidgetsBindingObserver {
         await _settings.markSynced(VnClock.now());
 
         if (_settings.balanceAlertsEnabled) {
+          // The watcher decides what is genuinely new and unclassified; `added`
+          // alone would re-announce a row the user already categorised.
           final int pending = await _dao.countPendingReview();
-          await NotificationService.instance.notifyBalanceChanged(
-            newCount: added,
-            total: pending,
-            sample: added == 1 ? 'Khoản mới' : null,
-          );
+          await _watcher.checkAndNotify(unclassifiedTotal: pending);
         }
       }
     } on Object catch (e) {

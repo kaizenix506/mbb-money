@@ -24,6 +24,8 @@ class TransactionStore extends ChangeNotifier {
   List<Transaction> _recent = const <Transaction>[];
   PeriodTotals _totals = PeriodTotals.empty;
   List<CategoryTotal> _byCategory = const <CategoryTotal>[];
+  List<({String? id, int total})> _byCategoryId =
+      const <({String? id, int total})>[];
   List<({DateTime month, int total})> _trailing =
       const <({DateTime month, int total})>[];
   int _pendingReview = 0;
@@ -48,6 +50,11 @@ class TransactionStore extends ChangeNotifier {
   List<Transaction> get recent => _recent;
   PeriodTotals get totals => _totals;
   List<CategoryTotal> get byCategory => _byCategory;
+
+  /// Per-category expense totals keyed by the stored id — the shape the
+  /// reports tab needs to name categories Hoàng created himself.
+  List<({String? id, int total})> get expenseByCategoryId => _byCategoryId;
+
   List<({DateTime month, int total})> get trailing => _trailing;
   int get pendingReviewCount => _pendingReview;
 
@@ -144,6 +151,7 @@ class TransactionStore extends ChangeNotifier {
       _repo.recent(limit: 6),
       _repo.totalsFor(_month),
       _repo.categoryBreakdown(_month),
+      _repo.categoryBreakdownById(_month),
       _repo.trailingExpenses(DateTime.now()),
       _repo.pendingReviewCount(),
     ]);
@@ -151,10 +159,11 @@ class TransactionStore extends ChangeNotifier {
     _recent = results[1] as List<Transaction>;
     _totals = results[2] as PeriodTotals;
     _byCategory = results[3] as List<CategoryTotal>;
+    _byCategoryId = results[4] as List<({String? id, int total})>;
     final List<({DateTime month, int total})> series =
-        results[4] as List<({DateTime month, int total})>;
+        results[5] as List<({DateTime month, int total})>;
     _trailing = series;
-    _pendingReview = results[5] as int;
+    _pendingReview = results[6] as int;
 
     // Range rows are loaded separately: they resolve to void, and bundling a
     // void future into the typed batch above is what the analyser rejects.

@@ -10,7 +10,7 @@ import '../../data/db/transaction_dao.dart';
 import '../../data/models/transaction.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../data/repositories/sync_service.dart';
-import '../../data/services/notification_service.dart';
+import '../../data/services/new_transaction_watcher.dart';
 import '../categories/manage_categories_page.dart';
 import '../settings/settings_page.dart';
 import '../stores/transaction_store.dart';
@@ -66,23 +66,11 @@ class _OverviewPageState extends State<OverviewPage> {
       if (mounted) {
         await context.read<TransactionStore>().afterExternalIngest();
       }
-    // Balance moved → nudge Hoàng to categorise + describe.
+      // Balance moved → let the watcher decide what is genuinely new and still
+      // unclassified, then nudge Hoàng to categorise it.
       if (settings.balanceAlertsEnabled) {
-        final List<Transaction> unclassified = mounted
-            ? context.read<TransactionStore>().monthTransactions
-                .where((Transaction t) =>
-                    t.isExpense && (t.categoryId == null || t.categoryId!.isEmpty))
-                .toList(growable: false)
-            : const <Transaction>[];
-        unawaited(
-          NotificationService.instance.notifyBalanceChanged(
-            newCount: report.added,
-            total: unclassified.fold<int>(0, (int s, Transaction t) => s + t.amount),
-            sample: unclassified.isEmpty
-                ? null
-                : unclassified.first.description,
-          ),
-        );
+        final NewTransactionWatcher watcher = context.read<NewTransactionWatcher>();
+        unawaited(watcher.checkAndNotify());
       }
     }
     if (!mounted) return;

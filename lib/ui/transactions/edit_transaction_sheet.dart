@@ -1,12 +1,15 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../core/formatters.dart';
 import '../../core/theme.dart';
 import '../../core/vn_clock.dart';
 import '../../data/models/transaction.dart';
-import '../../data/stores/category_store.dart';
+import '../category_ref.dart';
+import '../categories/manage_categories_page.dart';
 import '../stores/transaction_store.dart';
+import '../widgets/category_chip_grid.dart';
 
 /// Interactive Sheet to Edit, Re-categorize, or Delete any Transaction
 /// directly requested by Hoang: "chỉnh sửa phân loại các giao dịch, tùy chỉnh xóa hoặc thêm các mục"
@@ -56,9 +59,10 @@ class _EditTransactionSheetState extends State<EditTransactionSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final catStore = context.watch<CategoryStore>();
-    final txStore = context.watch<TransactionStore>();
-    final viewInsets = MediaQuery.of(context).viewInsets.bottom;
+    final TransactionStore txStore = context.watch<TransactionStore>();
+    final List<CategoryRef> choices =
+        context.categories.choicesFor(isIncome: widget.transaction.isIncome);
+    final double viewInsets = MediaQuery.of(context).viewInsets.bottom;
 
     return Container(
       margin: EdgeInsets.only(bottom: viewInsets),
@@ -175,52 +179,20 @@ class _EditTransactionSheetState extends State<EditTransactionSheet> {
                 ),
                 const SizedBox(height: 16),
 
-                // Category Selector Chips
+                // Category selector — laid out as a grid, because a wrapping
+                // row of chips overflowed once there were more than a handful
+                // of categories.
                 const Text('PHÂN LOẠI DANH MỤC', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.inkDim)),
                 const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: <Widget>[
-                    ...catStore.selectable.map((c) {
-                      final selected = _selectedCategoryId == c.id;
-                      return ChoiceChip(
-                        label: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(c.icon, size: 14, color: selected ? Colors.black : c.tint),
-                            const SizedBox(width: 6),
-                            Text(c.label),
-                          ],
-                        ),
-                        selected: selected,
-                        selectedColor: c.tint,
-                        backgroundColor: const Color(0x40162238),
-                        labelStyle: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: selected ? Colors.black : AppColors.ink,
-                        ),
-                        onSelected: (val) {
-                          if (val) setState(() => _selectedCategoryId = c.id);
-                        },
-                      );
-                    }),
-                    ActionChip(
-                      avatar: const Icon(Icons.add_rounded, size: 15, color: AppColors.neonYellow),
-                      label: const Text('Thêm mục'),
-                      backgroundColor: const Color(0x33162238),
-                      labelStyle: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.neonYellow,
-                      ),
-                      onPressed: () async {
-                        await Navigator.of(context).pushNamed('/categories');
-                        if (mounted) setState(() {});
-                      },
-                    ),
-                  ],
+                CategoryChipGrid(
+                  categories: choices,
+                  selectedId: _selectedCategoryId,
+                  onSelected: (CategoryRef c) =>
+                      setState(() => _selectedCategoryId = c.id),
+                  onAddCategory: () async {
+                    await Navigator.of(context).pushNamed(ManageCategoriesPage.route);
+                    if (mounted) setState(() {});
+                  },
                 ),
                 const SizedBox(height: 18),
 

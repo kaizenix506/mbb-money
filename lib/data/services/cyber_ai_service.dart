@@ -88,6 +88,10 @@ class CyberAiService with ChangeNotifier {
   Future<ExtractedExpense?> sendMessage(
     String text, {
     required List<Transaction> currentExpenses,
+
+    /// The user's own categories as id → label. Passed so the model is told
+    /// about them and can file a row into one instead of guessing "Khác".
+    Map<String, String> categoryLabels = const <String, String>{},
   }) async {
     final String trimmed = text.trim();
     if (trimmed.isEmpty) return null;
@@ -111,7 +115,12 @@ class CyberAiService with ChangeNotifier {
 
     if (geminiKey != null && geminiKey.isNotEmpty) {
       try {
-        final result = await _askGemini(geminiKey, trimmed, currentExpenses);
+        final result = await _askGemini(
+          geminiKey,
+          trimmed,
+          currentExpenses,
+          categoryLabels: categoryLabels,
+        );
         reply = result.reply;
         extracted = result.expense;
         if (extracted != null) {
@@ -126,7 +135,7 @@ class CyberAiService with ChangeNotifier {
     if (reply.isEmpty) {
       extracted = SmartParser.parse(
         trimmed,
-        knownCategories: _knownCategoryLabels(currentExpenses),
+        knownCategories: categoryLabels.keys.toList(growable: false),
         allowFallback: true,
       );
 
@@ -160,13 +169,6 @@ class CyberAiService with ChangeNotifier {
 
   // ------------------------------------------------------------- internals
 
-  List<String> _knownCategoryLabels(List<Transaction> expenses) {
-    return <String>{
-      for (final Transaction t in expenses)
-        if (t.categoryId != null) t.categoryId!,
-    }.toList(growable: false);
-  }
-
   String _cacheKey(String text) => text.toLowerCase().replaceAll(
         RegExp(r'\s+'),
         ' ',
@@ -188,8 +190,9 @@ class CyberAiService with ChangeNotifier {
   Future<({String reply, ExtractedExpense? expense})> _askGemini(
     String apiKey,
     String prompt,
-    List<Transaction> expenses,
-  ) async {
+    List<Transaction> expenses, {
+    Map<String, String> categoryLabels = const <String, String>{},
+  }) async {
     final String ctx = expenses
         .take(12)
         .map((Transaction t) => '- ${t.description}: ${Fmt.dong(t.amount)} '
@@ -203,7 +206,7 @@ class CyberAiService with ChangeNotifier {
 Bạn là A.R.I.A — trợ lý tài chính cá nhân AI của Hoàng (Việt Nam, múi giờ UTC+7).
 Bây giờ là ${VnClock.hm()} ngày ${VnClock.dateLabel()}.
 
-DANH MỤC HỢP LỆ (id | tên): ${CategoryCatalog.promptList}
+DANH MỤC HỢP LỆ (id | tên): ${CategoryCatalog.promptListWith(categoryLabels)}
 
 BẠN BẮT BUỘC PHẢI LUÔN TRẢ VỀ DUY NHẤT 1 JSON OBJECT THEO ĐÚNG CẤU TRÚC:
 {
@@ -251,8 +254,13 @@ $ctx
       },
     };
 
-    // Lowest-latency first; the first 200 wins.
+    // Ordered by preference: Hoàng asked for gemini-3.5-flash-lite first, so it
+    // is always the first attempt. Racing two models in parallel used to double
+    // the request rate against a single free-tier key, which caused more 429s
+    // than it saved in latency; a strict fallback list is both cheaper and
+    // easier to reason about.
     const List<String> models = <String>[
+      'gemini-3.5-flash-lite',
       'gemini-2.5-flash-lite',
       'gemini-2.5-flash',
       'gemini-flash-latest',
@@ -261,34 +269,12 @@ $ctx
 
     final http.Client client = http.Client();
     try {
-      final Completer<http.Response> completer = Completer<http.Response>();
-      final List<String> candidates = models.take(2).toList();
-      int settledCount = 0;
-
-      for (final String m in candidates) {
-        _tryModel(client, apiKey, m, payload).then((http.Response? r) {
-          if (r != null && r.statusCode == 200 && !completer.isCompleted) {
-            completer.complete(r);
-          }
-        }).catchError((_) {}).whenComplete(() {
-          settledCount++;
-          if (settledCount == candidates.length && !completer.isCompleted) {
-            completer.completeError('Primary models did not respond with 200');
-          }
-        });
-      }
-
       http.Response? ok;
-      try {
-        ok = await completer.future.timeout(const Duration(seconds: 8));
-      } catch (_) {
-        // Sequential fallback only if the fast race timed out or failed.
-        for (final String m in models.skip(2)) {
-          final http.Response? r = await _tryModel(client, apiKey, m, payload);
-          if (r != null && r.statusCode == 200) {
-            ok = r;
-            break;
-          }
+      for (final String m in models) {
+        final http.Response? r = await _tryModel(client, apiKey, m, payload);
+        if (r != null && r.statusCode == 200) {
+          ok = r;
+          break;
         }
       }
 
@@ -343,7 +329,8 @@ $ctx
           when = vnNow;
         }
         final String catId = (parsed['category'] ?? 'other').toString().trim();
-        final String resolvedCat = CategoryCatalog.resolveId(catId);
+        final String resolvedCat =
+            CategoryCatalog.resolveId(catId, extra: categoryLabels);
         final String catName = (parsed['category_name'] ?? CategoryCatalog.labelOf(resolvedCat)).toString();
         final String desc = (parsed['description'] ?? 'Chi tiêu').toString();
 
@@ -465,15 +452,54 @@ abstract final class CategoryCatalog {
   static String get promptList =>
       entries.entries.map((MapEntry<String, String> e) => '${e.key}=${e.value}').join(', ');
 
+  /// Builds the prompt fragment for [id]→[label] pairs, appending any
+  /// user-created categories after the built-ins so A.R.I.A knows they exist.
+  ///
+  /// Without this the model could only ever answer with a built-in id, which is
+  /// one of the reasons custom categories kept landing in "Khác".
+  static String promptListWith(Map<String, String> extra) {
+    if (extra.isEmpty) return promptList;
+    final StringBuffer buf = StringBuffer(promptList);
+    for (final MapEntry<String, String> e in extra.entries) {
+      if (entries.containsKey(e.key)) continue;
+      buf.write(', ${e.key}=${e.value}');
+    }
+    return buf.toString();
+  }
+
   static String labelOf(String id) => entries[id] ?? 'Khác';
 
   /// Accepts an id, a Vietnamese label, or a loose prefix and normalises it to
   /// a known id, so a model that answers "Đồ uống" still files correctly.
-  static String resolveId(String raw) {
+  ///
+  /// [extra] carries the user's own id/label pairs; they win over a fuzzy
+  /// prefix match on a built-in, because a custom bucket Hoàng named deliberately
+  /// is a better answer than a coincidence.
+  static String resolveId(String raw, {Map<String, String> extra = const <String, String>{}}) {
     final String needle = raw.toLowerCase().trim();
+    if (needle.isEmpty) return 'other';
+
+    // Exact id in either table.
     if (entries.containsKey(needle)) return needle;
+    if (extra.containsKey(raw.trim())) return raw.trim();
+    if (extra.containsKey(needle)) return needle;
+
+    // Exact label in either table.
     for (final MapEntry<String, String> e in entries.entries) {
       if (e.value.toLowerCase() == needle) return e.key;
+    }
+    for (final MapEntry<String, String> e in extra.entries) {
+      if (e.value.toLowerCase() == needle) return e.key;
+    }
+
+    // Loose containment, custom first.
+    for (final MapEntry<String, String> e in extra.entries) {
+      if (needle.contains(e.value.toLowerCase()) ||
+          e.value.toLowerCase().contains(needle)) {
+        return e.key;
+      }
+    }
+    for (final MapEntry<String, String> e in entries.entries) {
       if (needle.contains(e.key)) return e.key;
       if (e.value.toLowerCase().contains(needle)) return e.key;
     }

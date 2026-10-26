@@ -20,6 +20,7 @@ import 'data/repositories/sync_service.dart';
 import 'data/repositories/transaction_repository.dart';
 import 'data/services/background_sync_service.dart';
 import 'data/services/cyber_ai_service.dart';
+import 'data/services/new_transaction_watcher.dart';
 import 'data/services/notification_service.dart';
 import 'data/services/webhook_ingest_service.dart';
 import 'data/stores/category_store.dart';
@@ -77,6 +78,12 @@ Future<void> main() async {
   final NotificationService notifications = NotificationService.instance;
   unawaited(notifications.init());
 
+  // One watcher instance for the whole app: the background worker, the
+  // overview poll and the resume hook all call into it, so a row is announced
+  // exactly once no matter which path noticed it first.
+  final NewTransactionWatcher watcher = NewTransactionWatcher(dao: dao);
+  unawaited(watcher.seedIfNeeded());
+
   final WebhookIngestService webhook = WebhookIngestService(
     secrets: secrets,
     settings: settings,
@@ -90,6 +97,7 @@ Future<void> main() async {
     repository: repo,
     dao: dao,
     webhook: webhook,
+    watcher: watcher,
   );
   unawaited(worker.start());
 
@@ -106,6 +114,7 @@ Future<void> main() async {
         Provider<DeepLinkHandler>.value(value: links),
         Provider<BackgroundSyncService>.value(value: worker),
         Provider<WebhookIngestService>.value(value: webhook),
+        Provider<NewTransactionWatcher>.value(value: watcher),
       ],
       child: const MbbMoneyApp(),
     ),

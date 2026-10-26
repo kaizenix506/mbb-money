@@ -5,6 +5,7 @@ import 'core/theme.dart';
 import 'main.dart' show DeepLinkHandler;
 import 'ui/add/add_transaction_sheet.dart';
 import 'ui/categories/manage_categories_page.dart';
+import 'ui/new_transaction_ticker.dart';
 import 'ui/overview/overview_page.dart';
 import 'ui/reports/reports_page.dart';
 import 'ui/review/review_page.dart';
@@ -95,44 +96,46 @@ class _AppShellState extends State<AppShell> {
       const ReportsPage(),
     ];
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      extendBody: true,
-      body: Stack(
-        children: <Widget>[
-          Positioned.fill(
-            child: MidnightBackground(
-              // TapRegion: tapping outside any text field closes the keyboard
-              child: TapRegion(
-                onTapOutside: (PointerDownEvent _) =>
-                    FocusManager.instance.primaryFocus?.unfocus(),
-                child: PageView(
-                  controller: _pageController,
-                  physics: const BouncingScrollPhysics(),
-                  onPageChanged: (int i) => setState(() => _index = i),
-                  children: pages,
+    return NewTransactionTicker(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        extendBody: true,
+        body: Stack(
+          children: <Widget>[
+            Positioned.fill(
+              child: MidnightBackground(
+                // TapRegion: tapping outside any text field closes the keyboard
+                child: TapRegion(
+                  onTapOutside: (PointerDownEvent _) =>
+                      FocusManager.instance.primaryFocus?.unfocus(),
+                  child: PageView(
+                    controller: _pageController,
+                    physics: const BouncingScrollPhysics(),
+                    onPageChanged: (int i) => setState(() => _index = i),
+                    children: pages,
+                  ),
                 ),
               ),
             ),
-          ),
-          if (store.isLoading)
-            const Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: LinearProgressIndicator(
-                minHeight: 2,
-                backgroundColor: Colors.transparent,
-                color: AppColors.mint,
+            if (store.isLoading)
+              const Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: LinearProgressIndicator(
+                  minHeight: 2,
+                  backgroundColor: Colors.transparent,
+                  color: AppColors.mint,
+                ),
               ),
-            ),
-        ],
-      ),
-      bottomNavigationBar: GlassNavBar(
-        index: _index,
-        titles: _titles,
-        onChanged: _onNavTap,
-        onAdd: () => AddTransactionSheet.show(context),
+          ],
+        ),
+        bottomNavigationBar: GlassNavBar(
+          index: _index,
+          titles: _titles,
+          onChanged: _onNavTap,
+          onAdd: () => AddTransactionSheet.show(context),
+        ),
       ),
     );
   }

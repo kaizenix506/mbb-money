@@ -5,8 +5,8 @@ import 'package:provider/provider.dart';
 import '../../core/formatters.dart';
 import '../../core/theme.dart';
 import '../../data/db/transaction_dao.dart';
-import '../../data/models/category.dart';
 import '../stores/transaction_store.dart';
+import '../category_ref.dart';
 
 /// Reports tab — the "Editorial Ledger" layout.
 ///
@@ -20,7 +20,7 @@ class ReportsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final TransactionStore store = context.watch<TransactionStore>();
     final PeriodTotals totals = store.totals;
-    final List<CategoryTotal> cats = store.byCategory;
+    final List<({String? id, int total})> cats = store.expenseByCategoryId;
     final List<({DateTime month, int total})> trailing = store.trailing;
 
     final int prevMonthTotal = trailing.length >= 2
@@ -35,7 +35,7 @@ class ReportsPage extends StatelessWidget {
     final int maxCategory = cats.isEmpty
         ? 0
         : cats
-            .map((CategoryTotal c) => c.total)
+            .map((({String? id, int total}) c) => c.total)
             .reduce((int a, int b) => a > b ? a : b);
 
     return SafeArea(
@@ -64,8 +64,11 @@ class ReportsPage extends StatelessWidget {
               ),
             )
           else
-            for (final CategoryTotal c in cats)
-              _CategoryBar(item: c, max: maxCategory),
+            for (final ({String? id, int total}) c in cats)
+              _CategoryBar(
+                item: (category: context.categories.findById(c.id), total: c.total),
+                max: maxCategory,
+              ),
           const SizedBox(height: 18),
           _SectionLabel(
             'Nhật ký giao dịch',
@@ -86,7 +89,7 @@ class ReportsPage extends StatelessWidget {
                 date: Fmt.dayMonth(t.occurredAt),
                 title: t.description.isEmpty ? '(không nội dung)' : t.description,
                 meta: '${t.source.badge} · ${Fmt.time(t.occurredAt)} · '
-                    '${Category.byId(t.categoryId)?.label ?? 'Chưa phân loại'}',
+                    '${context.categories.findById(t.categoryId).label}',
                 amount: Fmt.signed(t.signedAmount),
                 synced: t.source.isFromBank,
               ),
@@ -704,7 +707,7 @@ class _SectionLabel extends StatelessWidget {
 class _CategoryBar extends StatelessWidget {
   const _CategoryBar({required this.item, required this.max});
 
-  final CategoryTotal item;
+  final ({CategoryRef category, int total}) item;
 
   /// Largest sibling total, so each bar reads as a share of the biggest one.
   final int max;

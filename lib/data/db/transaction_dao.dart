@@ -260,6 +260,33 @@ class TransactionDao {
     );
   }
 
+  /// Expense totals grouped by the raw `category_id`, biggest first.
+  ///
+  /// Unlike [expenseByCategory] this does not try to map ids onto the built-in
+  /// enum, which is what lets the reports tab show categories Hoàng created
+  /// himself. Rows with no category come back with a `null` id.
+  Future<List<({String? id, int total})>> expenseByCategoryId({
+    required DateTime from,
+    required DateTime to,
+  }) async {
+    final Database db = await _db;
+    final List<Map<String, Object?>> rows = await db.rawQuery(
+      '''
+      SELECT category_id, SUM(amount) AS total
+      FROM transactions
+      WHERE type = 'expense' AND occurred_at >= ? AND occurred_at < ?
+      GROUP BY category_id
+      ORDER BY total DESC
+      ''',
+      <Object?>[from.millisecondsSinceEpoch, to.millisecondsSinceEpoch],
+    );
+
+    return <({String? id, int total})>[
+      for (final Map<String, Object?> r in rows)
+        (id: r['category_id'] as String?, total: (r['total'] as num?)?.toInt() ?? 0),
+    ];
+  }
+
   /// Expense totals grouped by category, biggest first. Uncategorised rows
   /// fall into [Category.other] so the list always sums to the period expense.
   Future<List<CategoryTotal>> expenseByCategory({
@@ -359,6 +386,73 @@ class TransactionDao {
       'SELECT COUNT(*) AS cnt FROM transactions WHERE pending_review = 1',
     );
     return (rows.first['cnt'] as num?)?.toInt() ?? 0;
+  }
+
+  // ------------------------------------------------- new-row notification
+
+  /// Highest row id currently stored, `0` when the ledger is empty.
+  ///
+  /// Ids are AUTOINCREMENT, so "id > watermark" is an exact test for "arrived
+  /// after we last looked" — no timestamp comparisons and no clock skew.
+  Future<int> maxId() async {
+    final Database db = await _db;
+    final List<Map<String, Object?>> rows = await db.rawQuery(
+      'SELECT COALESCE(MAX(id), 0) AS mx FROM transactions',
+    );
+    return (rows.first['mx'] as num?)?.toInt() ?? 0;
+  }
+
+  /// Rows with id > after, newest first. Powers the new-transaction push.
+  Future<List<Transaction>> rowsAbove(int after, {int limit = 20}) async {
+    final Database db = await _db;
+    final List<Map<String, Object?>> rows = await db.query(
+      'transactions',
+      where: 'id > ?',
+      whereArgs: <Object?>[after],
+      orderBy: 'id DESC',
+      limit: limit,
+    );
+    return rows.map(Transaction.fromMap).toList(growable: false);
+  }
+
+  /// Finds an existing row for a bank reference, so a webhook pushed for a
+  /// transaction the SePay poller already stored is not announced twice.
+  Future<Transaction?> byReference(String reference) async {
+    final Database db = await _db;
+    final List<Map<String, Object?>> rows = await db.query(
+      'transactions',
+      where: 'reference_number = ?',
+      whereArgs: <Object?>[reference],
+      limit: 1,
+    );
+    return rows.isEmpty ? null : Transaction.fromMap(rows.first);
+  }
+
+  // --------------------------------------------------- internal state (kv)
+
+  Future<String?> readInternal(String key) async {
+    final Database db = await _db;
+    final List<Map<String, Object?>> rows = await db.query(
+      'internal_state',
+      columns: <String>['value'],
+      where: 'key = ?',
+      whereArgs: <Object?>[key],
+      limit: 1,
+    );
+    return rows.isEmpty ? null : rows.first['value'] as String?;
+  }
+
+  Future<void> writeInternal(String key, String? value) async {
+    final Database db = await _db;
+    if (value == null) {
+      await db.delete('internal_state', where: 'key = ?', whereArgs: <Object?>[key]);
+      return;
+    }
+    await db.insert(
+      'internal_state',
+      <String, Object?>{'key': key, 'value': value},
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
   /// Distinct descriptions for a category — powers quick-add suggestions.

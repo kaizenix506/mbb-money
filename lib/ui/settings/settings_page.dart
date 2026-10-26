@@ -790,10 +790,64 @@ class _WebhookField extends StatelessWidget {
 
 /// Toggles the "biến động số dư" reminders and shows whether the background
 /// worker is currently polling SePay.
-class _CyberNotificationsCard extends StatelessWidget {
+class _CyberNotificationsCard extends StatefulWidget {
   const _CyberNotificationsCard({required this.settings});
 
   final SettingsRepository settings;
+
+  @override
+  State<_CyberNotificationsCard> createState() =>
+      _CyberNotificationsCardState();
+}
+
+class _CyberNotificationsCardState extends State<_CyberNotificationsCard> {
+  /// Whether the OS will actually deliver a banner right now. Read on mount and
+  /// after each attempt, so a permission revoked in iOS Settings is visible
+  /// here instead of silently swallowing reminders.
+  bool _notifGranted = false;
+  bool _testingNotif = false;
+
+  SettingsRepository get settings => widget.settings;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshPermission();
+  }
+
+  Future<void> _refreshPermission() async {
+    final bool ok = await NotificationService.instance.hasPermission();
+    if (mounted) setState(() => _notifGranted = ok);
+  }
+
+  /// Sends one real banner so Hoàng can confirm the chain end-to-end. Asks for
+  /// permission first if it was never granted, and reports back if the user
+  /// keeps it off — otherwise the button looks broken.
+  Future<void> _testNotification() async {
+    setState(() => _testingNotif = true);
+    final bool ok = await NotificationService.instance.ensurePermission();
+    if (ok) {
+      await NotificationService.instance.notifyNewTransactions(
+        newCount: 1,
+        unclassifiedTotal: 45000,
+        samples: const <String>['Thử nhắc · Highlands Coffee'],
+      );
+    }
+    if (!mounted) return;
+    setState(() {
+      _testingNotif = false;
+      _notifGranted = ok;
+    });
+    if (!ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'iOS chưa cho phép thông báo. Mở Cài đặt › MBB Money › Thông báo để bật.',
+          ),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -827,6 +881,36 @@ class _CyberNotificationsCard extends StatelessWidget {
               if (v) await NotificationService.instance.ensurePermission();
             },
           ),
+          if (settings.balanceAlertsEnabled) ...<Widget>[
+            const SizedBox(height: 4),
+            // A reminder that silently does nothing is worse than no reminder:
+            // this row shows the actual permission state and lets Hoàng prove
+            // to himself that the banner reaches the lock screen.
+            Row(
+              children: <Widget>[
+                const Icon(Icons.notifications_active_rounded,
+                    size: 15, color: AppColors.inkDim),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _notifGranted
+                        ? 'Quyền thông báo: đã bật'
+                        : 'Quyền thông báo: chưa bật',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: _notifGranted
+                          ? AppColors.neonGreen
+                          : AppColors.neonYellow,
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: _testingNotif ? null : _testNotification,
+                  child: Text(_testingNotif ? 'Đang gửi…' : 'Thử nhắc'),
+                ),
+              ],
+            ),
+          ],
           const Divider(color: AppColors.strokeFaint, height: 22),
           Row(
             children: <Widget>[

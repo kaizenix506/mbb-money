@@ -74,6 +74,15 @@ class TransactionRepository {
     );
   }
 
+  /// Same aggregation as [categoryBreakdown], but keyed by the stored id so
+  /// custom categories are not collapsed into the built-in "Khác".
+  Future<List<({String? id, int total})>> categoryBreakdownById(DateTime month) {
+    return _dao.expenseByCategoryId(
+      from: Fmt.startOfMonth(month),
+      to: Fmt.startOfNextMonth(month),
+    );
+  }
+
   Future<List<({DateTime month, int total})>> trailingExpenses(
     DateTime now, {
     int months = 6,
