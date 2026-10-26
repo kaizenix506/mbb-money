@@ -342,6 +342,7 @@ $ctx
         } else {
           when = vnNow;
         }
+        final String catId = (parsed['category'] ?? 'other').toString().trim();
         final String resolvedCat = CategoryCatalog.resolveId(catId);
         final String catName = (parsed['category_name'] ?? CategoryCatalog.labelOf(resolvedCat)).toString();
         final String desc = (parsed['description'] ?? 'Chi tiêu').toString();
