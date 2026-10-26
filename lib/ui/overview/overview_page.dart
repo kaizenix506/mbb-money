@@ -12,6 +12,7 @@ import '../../data/repositories/settings_repository.dart';
 import '../../data/repositories/sync_service.dart';
 import '../../data/services/new_transaction_watcher.dart';
 import '../categories/manage_categories_page.dart';
+import '../category_ref.dart';
 import '../settings/settings_page.dart';
 import '../stores/transaction_store.dart';
 import '../transactions/edit_transaction_sheet.dart';
@@ -194,18 +195,42 @@ class _MonthInsights extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final List<CategoryTotal> cats = store.byCategory;
+    // Raw per-id totals, not the enum-mapped breakdown: grouping by
+    // Category.byId() puts every custom category into one "Khác" wedge, which
+    // is exactly the donut Hoàng complained about.
+    final List<({String? id, int total})> cats = store.expenseByCategoryId;
+    final CategoryResolver resolver = context.categories;
+    final List<({CategoryRef category, int total})> resolved =
+        <({CategoryRef category, int total})>[
+      for (final ({String? id, int total}) c in cats)
+        (category: resolver.findById(c.id), total: c.total),
+    ];
     final List<({DateTime month, int total})> trailing = store.trailing;
     final int current = store.totals.expense;
     final int previous =
         trailing.length >= 2 ? trailing[trailing.length - 2].total : 0;
 
+    // Anything past the top 5 is folded into one slice so the ring always sums
+    // to the month total instead of silently dropping the tail.
+    const int topN = 5;
+    final List<({CategoryRef category, int total})> head =
+        resolved.take(topN).toList(growable: false);
+    final int tailTotal = resolved
+        .skip(topN)
+        .fold<int>(0, (int s, ({CategoryRef category, int total}) e) => s + e.total);
+
     final List<DonutSlice> slices = <DonutSlice>[
-      for (final CategoryTotal c in cats.take(6))
+      for (final ({CategoryRef category, int total}) c in head)
         DonutSlice(
           label: c.category.label,
           value: c.total,
           color: c.category.tint,
+        ),
+      if (tailTotal > 0)
+        DonutSlice(
+          label: 'Mục khác',
+          value: tailTotal,
+          color: AppColors.inkFaint,
         ),
     ];
 
@@ -235,7 +260,7 @@ class _MonthInsights extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 10),
-                      for (final CategoryTotal c in cats.take(4))
+                      for (final ({CategoryRef category, int total}) c in resolved.take(4))
                         Padding(
                           padding: const EdgeInsets.only(bottom: 7),
                           child: Row(

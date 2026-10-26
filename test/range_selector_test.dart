@@ -73,12 +73,14 @@ void main() {
     expect(t.takeException(), isNull);
   });
 
-  testWidgets('defaults to the 1 tháng chip', (WidgetTester t) async {
+  testWidgets('defaults to the 7 ngày chip', (WidgetTester t) async {
     final TransactionStore store = newStore();
     await t.pumpWidget(harness(store));
     await t.pump(const Duration(milliseconds: 300));
 
-    expect(store.range, TxRange.months1);
+    // Hoàng asked for the transactions tab to open on the last 7 days rather
+    // than a whole month.
+    expect(store.range, TxRange.days7);
   });
 
   testWidgets('tapping a chip changes the selected range', (WidgetTester t) async {

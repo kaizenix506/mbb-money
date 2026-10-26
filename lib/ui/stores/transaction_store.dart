@@ -34,7 +34,7 @@ class TransactionStore extends ChangeNotifier {
 
   /// Window selected on the transactions tab. Independent of [_month] on
   /// purpose: scrolling five years of history must not move the overview.
-  TxRange _range = TxRange.months1;
+  TxRange _range = TxRange.days7;
   List<Transaction> _rangeRows = const <Transaction>[];
   PeriodTotals _rangeTotals = PeriodTotals.empty;
   Map<DateTime, int> _rangeDaily = const <DateTime, int>{};

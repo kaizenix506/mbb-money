@@ -204,7 +204,12 @@ class ManageCategoriesPage extends StatelessWidget {
   Future<void> _showCategoryEditor(BuildContext context, {CategoryItem? existing}) async {
     final TextEditingController textCtrl = TextEditingController(text: existing?.label ?? '');
     Color selectedColor = existing != null ? Color(existing.colorValue) : AppColors.neonCyan;
-    String selectedIconKey = existing?.iconKey ?? 'food';
+    // Only an existing category carries a real choice. A brand-new one starts
+    // unpicked and is guessed from the label as Hoàng types, because the old
+    // default of 'food' stamped the plate icon on every custom category that
+    // was saved without ever touching the picker.
+    String? pickedIconKey = existing?.iconKey;
+    String effectiveIconKey(String label) => pickedIconKey ?? guessIconKey(label);
 
     const List<Color> colors = <Color>[
       AppColors.neonCyan,
@@ -215,15 +220,25 @@ class ManageCategoriesPage extends StatelessWidget {
       AppColors.neonOrange,
     ];
 
+    // Every key must exist in categoryIconMap or the tile silently falls back
+    // to Icons.category_rounded and the tap looks ignored.
     const List<String> iconKeys = <String>[
       'food',
+      'drink',
       'coffee',
+      'transport',
       'shopping',
+      'bills',
+      'health',
+      'entertainment',
+      'education',
+      'family',
       'flight',
       'pet',
       'sport',
       'music',
       'gift',
+      'other',
     ];
 
     await showModalBottomSheet<void>(
@@ -261,6 +276,7 @@ class ManageCategoriesPage extends StatelessWidget {
                     TextField(
                       controller: textCtrl,
                       autofocus: existing == null,
+                      onChanged: (_) => setModalState(() {}),
                       style: const TextStyle(color: AppColors.ink),
                       decoration: InputDecoration(
                         hintText: 'Tên danh mục (ví dụ: Nuôi mèo, Du lịch...)',
@@ -293,27 +309,54 @@ class ManageCategoriesPage extends StatelessWidget {
                       }).toList(),
                     ),
                     const SizedBox(height: 16),
-                    const Text('Biểu tượng', style: TextStyle(fontSize: 12, color: AppColors.inkDim)),
-                    const SizedBox(height: 8),
+                    Row(
+                      children: <Widget>[
+                        const Text('Biểu tượng',
+                            style: TextStyle(fontSize: 12, color: AppColors.inkDim)),
+                        const Spacer(),
+                        // Live preview: without it the choice is invisible until
+                        // after saving, which is how the plate went unnoticed.
+                        Container(
+                          padding: const EdgeInsets.all(7),
+                          decoration: BoxDecoration(
+                            color: selectedColor.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: selectedColor.withValues(alpha: 0.6)),
+                          ),
+                          child: Icon(
+                            categoryIconMap[effectiveIconKey(textCtrl.text)] ??
+                                Icons.category_rounded,
+                            color: selectedColor,
+                            size: 18,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
                       children: iconKeys.map((String key) {
-                        final bool active = selectedIconKey == key;
+                        final bool active = effectiveIconKey(textCtrl.text) == key;
                         final IconData ic = categoryIconMap[key] ?? Icons.category_rounded;
                         return GestureDetector(
-                          onTap: () => setModalState(() => selectedIconKey = key),
+                          onTap: () => setModalState(() => pickedIconKey = key),
                           child: Container(
-                            padding: const EdgeInsets.all(9),
+                            width: 42,
+                            height: 42,
+                            alignment: Alignment.center,
                             decoration: BoxDecoration(
-                              color: active ? selectedColor.withValues(alpha: 0.2) : Colors.transparent,
+                              color: active
+                                  ? selectedColor.withValues(alpha: 0.22)
+                                  : Colors.transparent,
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
                                 color: active ? selectedColor : AppColors.strokeFaint,
-                                width: active ? 1.6 : 1,
+                                width: active ? 1.8 : 1,
                               ),
                             ),
-                            child: Icon(ic, color: active ? selectedColor : AppColors.inkDim, size: 21),
+                            child: Icon(ic,
+                                color: active ? selectedColor : AppColors.inkDim, size: 21),
                           ),
                         );
                       }).toList(),
@@ -335,14 +378,14 @@ class ManageCategoriesPage extends StatelessWidget {
                           if (existing == null) {
                             await store.addCategory(
                               label: label,
-                              iconKey: selectedIconKey,
+                              iconKey: effectiveIconKey(label),
                               color: selectedColor,
                             );
                           } else {
                             await store.updateCategory(
                               existing.id,
                               label: label,
-                              iconKey: selectedIconKey,
+                              iconKey: effectiveIconKey(label),
                               color: selectedColor,
                             );
                           }

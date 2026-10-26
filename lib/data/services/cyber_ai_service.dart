@@ -193,20 +193,98 @@ class CyberAiService with ChangeNotifier {
     List<Transaction> expenses, {
     Map<String, String> categoryLabels = const <String, String>{},
   }) async {
-    final String ctx = expenses
-        .take(12)
-        .map((Transaction t) => '- ${t.description}: ${Fmt.dong(t.amount)} '
-            '(${t.categoryId ?? 'other'})')
+    final DateTime today = VnClock.localNow();
+    final int todayStart = DateTime(today.year, today.month, today.day)
+        .millisecondsSinceEpoch;
+    final int yesterdayStart = todayStart - const Duration(days: 1).inMilliseconds;
+
+    // The old context was 12 undated rows, which is why "hôm nay chi gì" got
+    // "không có chi tiêu nào": the model literally had no date to compare.
+    // Build a small but *dated* picture instead.
+    final List<Transaction> todayRows = expenses
+        .where((Transaction t) => t.occurredAt.millisecondsSinceEpoch >= todayStart)
+        .toList(growable: false);
+    final List<Transaction> yesterdayRows = expenses
+        .where((Transaction t) {
+          final int ms = t.occurredAt.millisecondsSinceEpoch;
+          return ms >= yesterdayStart && ms < todayStart;
+        })
+        .toList(growable: false);
+
+    int sumOf(List<Transaction> rows) =>
+        rows.fold<int>(0, (int s, Transaction t) => s + t.amount);
+
+    final int todayTotal = sumOf(todayRows);
+    final int yesterdayTotal = sumOf(yesterdayRows);
+    final int totalThisMonth = sumOf(expenses);
+
+    String rowLine(Transaction t) =>
+        '- ${VnClock.hm(t.occurredAt)} ${t.description.isEmpty ? '(không nội dung)' : t.description}'
+        ': ${Fmt.dong(t.amount)} [${categoryLabels[t.categoryId] ?? t.categoryId ?? 'other'}]';
+
+    final String todayCtx = todayRows.isEmpty
+        ? '(chưa có khoản chi nào hôm nay)'
+        : todayRows.take(15).map(rowLine).join('\n');
+    final String yesterdayCtx = yesterdayRows.isEmpty
+        ? '(không có khoản chi nào hôm qua)'
+        : yesterdayRows.take(8).map(rowLine).join('\n');
+
+    // Per-day totals for the last 7 days, so "3 ngày nay" questions resolve.
+    final Map<DateTime, int> perDay = <DateTime, int>{};
+    for (final Transaction t in expenses) {
+      final DateTime d = DateTime(
+          t.occurredAt.year, t.occurredAt.month, t.occurredAt.day);
+      perDay[d] = (perDay[d] ?? 0) + t.amount;
+    }
+    final List<MapEntry<DateTime, int>> recentDays = perDay.entries.toList()
+      ..sort((MapEntry<DateTime, int> a, MapEntry<DateTime, int> b) =>
+          b.key.compareTo(a.key));
+    final String last7Ctx = recentDays
+        .take(7)
+        .map((MapEntry<DateTime, int> e) =>
+            '- ${e.key.day}/${e.key.month}: ${Fmt.dong(e.value)}')
         .join('\n');
 
-    final int totalThisMonth =
-        expenses.fold<int>(0, (int s, Transaction t) => s + t.amount);
+    // Per-category totals, which is what "chi nhiều nhất vào đâu" needs.
+    final Map<String, int> perCat = <String, int>{};
+    for (final Transaction t in expenses) {
+      final String key = categoryLabels[t.categoryId] ?? t.categoryId ?? 'Khác';
+      perCat[key] = (perCat[key] ?? 0) + t.amount;
+    }
+    final List<MapEntry<String, int>> catRanked = perCat.entries.toList()
+      ..sort((MapEntry<String, int> a, MapEntry<String, int> b) =>
+          b.value.compareTo(a.value));
+    final String catCtx = catRanked.isEmpty
+        ? '(chưa có dữ liệu)'
+        : catRanked
+            .take(10)
+            .map((MapEntry<String, int> e) =>
+                '- ${e.key}: ${Fmt.dong(e.value)} (${totalThisMonth == 0 ? 0 : ((e.value / totalThisMonth) * 100).round()}%)')
+            .join('\n');
 
     final String system = '''
 Bạn là A.R.I.A — trợ lý tài chính cá nhân AI của Hoàng (Việt Nam, múi giờ UTC+7).
 Bây giờ là ${VnClock.hm()} ngày ${VnClock.dateLabel()}.
 
 DANH MỤC HỢP LỆ (id | tên): ${CategoryCatalog.promptListWith(categoryLabels)}
+
+=== DỮ LIỆU THẬT TRONG APP (tháng ${today.month}/${today.year}) ===
+Tổng chi cả tháng: ${Fmt.dong(totalThisMonth)} qua ${expenses.length} giao dịch.
+HÔM NAY: ${Fmt.dong(todayTotal)} qua ${todayRows.length} giao dịch.
+HÔM QUA: ${Fmt.dong(yesterdayTotal)} qua ${yesterdayRows.length} giao dịch.
+
+Chi tiết HÔM NAY:
+$todayCtx
+
+Chi tiết HÔM QUA:
+$yesterdayCtx
+
+Chi theo từng ngày (gần nhất trước):
+${last7Ctx.isEmpty ? '(chưa có dữ liệu)' : last7Ctx}
+
+Chi theo danh mục (nhiều nhất trước):
+$catCtx
+=== HẾT DỮ LIỆU ===
 
 BẠN BẮT BUỘC PHẢI LUÔN TRẢ VỀ DUY NHẤT 1 JSON OBJECT THEO ĐÚNG CẤU TRÚC:
 {
@@ -226,16 +304,18 @@ QUY TẮC:
    - "category": id danh mục chính xác (uống nước -> drink, ăn -> food, cafe -> coffee, xe/xăng -> transport, mua đồ -> shopping, tiền điện/nước/mạng -> bills, cắt tóc/thuốc -> health)
    - "reply": "Dạ A.R.I.A đã ghi nhận khoản chi [mô tả] [số tiền] vào mục [tên mục] cho Hoàng rồi nhé! ✨"
 
-2. Nếu Hoàng chào hỏi hoặc trò chuyện (ví dụ: "xin chào", "chào", "ai ơi", "hôm nay thế nào", "tôi nên tiết kiệm ra sao", "tháng này chi bao nhiêu"):
+2. Nếu Hoàng HỎI về chi tiêu (ví dụ: "hôm nay chi gì", "hôm nay tiêu bao nhiêu", "tháng này chi bao nhiêu", "chi nhiều nhất vào đâu", "tuần này thế nào", "còn bao nhiêu tiền"):
    - "action": "chat_response"
-   - "amount": null, "category": null, "category_name": null, "description": null
-   - "reply": BẮT BUỘC PHẢI CÓ câu trả lời trò chuyện thông minh, tình cảm, xưng là A.R.I.A và gọi người dùng là Hoàng (tối đa 2-3 câu).
+   - TRẢ LỜI DỰA TRÊN "DỮ LIỆU THẬT TRONG APP" ở trên. ĐỌC KỸ phần "Chi tiết HÔM NAY" trước khi nói "không có".
+   - Nếu hôm nay có giao dịch: liệt kê ngắn gọn từng khoản kèm số tiền và tổng.
+   - Chỉ được nói "hôm nay chưa có khoản chi nào" khi phần HÔM NAY ghi đúng 0 đồng VÀ 0 giao dịch.
+   - TUYỆT ĐỐI không bịa số. Không có trong dữ liệu thì nói chưa có dữ liệu.
 
-3. TUYỆT ĐỐI không để trường "reply" bị rỗng hoặc null! Không dùng markdown block.
+3. Nếu Hoàng chào hỏi hoặc trò chuyện phiếm:
+   - "action": "chat_response", các trường tiền/danh mục = null
+   - "reply": trả lời thân thiện, xưng A.R.I.A, gọi Hoàng (tối đa 2-3 câu).
 
-Tổng chi tháng này: ${Fmt.dong(totalThisMonth)}.
-Giao dịch gần đây:
-$ctx
+4. TUYỆT ĐỐI không để trường "reply" bị rỗng hoặc null! Không dùng markdown block.
 ''';
 
     final Map<String, Object?> payload = <String, Object?>{

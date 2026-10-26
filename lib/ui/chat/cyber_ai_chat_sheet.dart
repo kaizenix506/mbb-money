@@ -67,7 +67,25 @@ class _CyberAiChatSheetState extends State<CyberAiChatSheet> {
 
     final aiService = context.read<CyberAiService>();
     final txStore = context.read<TransactionStore>();
-    final expenses = txStore.monthTransactions.where((t) => t.isExpense).toList();
+
+    // The month list alone leaves "hôm nay" empty whenever today falls outside
+    // the month currently loaded (or before the first fetch completes), which is
+    // what produced the bogus "không có chi tiêu nào". Union it with the recent
+    // window and de-duplicate by id.
+    final Map<int, Transaction> byId = <int, Transaction>{};
+    for (final Transaction t in txStore.monthTransactions) {
+      if (t.isExpense) byId[t.id ?? t.occurredAt.millisecondsSinceEpoch] = t;
+    }
+    final DateTime now = VnClock.localNow();
+    final DateTime last7 = DateTime(now.year, now.month, now.day)
+        .subtract(const Duration(days: 6));
+    for (final Transaction t in txStore.rangeRows) {
+      if (t.isExpense && !t.occurredAt.isBefore(last7)) {
+        byId[t.id ?? t.occurredAt.millisecondsSinceEpoch] = t;
+      }
+    }
+    final expenses = byId.values.toList()
+      ..sort((Transaction a, Transaction b) => b.occurredAt.compareTo(a.occurredAt));
 
     // id → label of every category Hoàng actually has, custom ones included,
     // so the model can answer with one of them instead of falling back to

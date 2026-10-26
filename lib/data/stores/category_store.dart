@@ -22,6 +22,48 @@ const Map<String, IconData> categoryIconMap = {
   'gift': Icons.card_giftcard_rounded,
 };
 
+/// Guesses an icon key from a Vietnamese category name.
+///
+/// Exists because the editor used to default every new category to `'food'`,
+/// which is why *all* custom categories showed the same plate. Matching on the
+/// label means a category is born with a sensible glyph even if the user never
+/// opens the icon picker.
+///
+/// Order matters: more specific words come first so "trà sữa" hits `drink`
+/// before the generic "ăn" rule can claim it.
+String guessIconKey(String label) {
+  final String s = label.toLowerCase();
+
+  const List<({String key, List<String> words})> rules =
+      <({String key, List<String> words})>[
+    (key: 'coffee', words: <String>['cà phê', 'cafe', 'coffee', 'trà sữa', 'trà']),
+    (key: 'drink', words: <String>['nước', 'sinh tố', 'sữa', 'bia', 'rượu', 'giải khát']),
+    // Transport must sit above food: "xăng xe" contains "ăn" (x-ă-n-g),
+    // so the food rule would otherwise claim every fuel purchase.
+    (key: 'transport', words: <String>['xăng', 'xe', 'grab', 'taxi', 'đi lại', 'vé', 'tàu']),
+    (key: 'flight', words: <String>['du lịch', 'máy bay', 'khách sạn', 'resort', 'phượt']),
+    (key: 'food', words: <String>['ăn', 'cơm', 'phở', 'bún', 'cháo', 'bánh', 'quán', 'nhậu']),
+    (key: 'shopping', words: <String>['mua', 'shop', 'quần', 'áo', 'giày', 'mỹ phẩm', 'đồ']),
+    (key: 'bills', words: <String>['điện', 'nước sinh', 'mạng', 'internet', 'hoá đơn', 'hóa đơn', 'điện thoại', 'cước']),
+    (key: 'health', words: <String>['thuốc', 'khám', 'bệnh', 'sức khoẻ', 'sức khỏe', 'gym', 'y tế']),
+    (key: 'entertainment', words: <String>['game', 'phim', 'giải trí', 'karaoke', 'netflix']),
+    (key: 'education', words: <String>['học', 'sách', 'trường', 'khoá', 'khóa', 'giáo dục']),
+    (key: 'family', words: <String>['gia đình', 'bố', 'mẹ', 'con', 'vợ', 'chồng']),
+    (key: 'pet', words: <String>['mèo', 'chó', 'thú cưng', 'pet']),
+    (key: 'sport', words: <String>['thể thao', 'bóng', 'chạy', 'bơi', 'sport']),
+    (key: 'music', words: <String>['nhạc', 'music', 'spotify']),
+    (key: 'gift', words: <String>['quà', 'tặng', 'gift', 'cưới', 'sinh nhật']),
+  ];
+
+  for (final ({String key, List<String> words}) rule in rules) {
+    for (final String w in rule.words) {
+      if (s.contains(w)) return rule.key;
+    }
+  }
+  // A name we cannot read still deserves a neutral glyph rather than a plate.
+  return 'other';
+}
+
 /// Represents a financial category with liquid glass tint and icon.
 class CategoryItem {
   const CategoryItem({
