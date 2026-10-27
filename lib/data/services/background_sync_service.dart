@@ -138,10 +138,10 @@ class BackgroundSyncService with WidgetsBindingObserver {
         await _settings.markSynced(VnClock.now());
 
         if (_settings.balanceAlertsEnabled) {
-          // The watcher decides what is genuinely new and unclassified; `added`
-          // alone would re-announce a row the user already categorised.
-          final int pending = await _dao.countPendingReview();
-          await _watcher.checkAndNotify(unclassifiedTotal: pending);
+          // The watcher decides what is genuinely new and unclassified and sums
+          // their real amounts. Passing countPendingReview() here would put a
+          // row COUNT where the banner promises a ĐỒNG total.
+          await _watcher.checkAndNotify();
         }
       }
     } on Object catch (e) {

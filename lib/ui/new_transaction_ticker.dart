@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:provider/provider.dart';
 
+import '../data/repositories/settings_repository.dart';
 import '../data/services/new_transaction_watcher.dart';
 
 /// Keeps the "new transaction needs a category" check ticking while the app is
@@ -34,6 +35,15 @@ class _NewTransactionTickerState extends State<NewTransactionTicker>
     with WidgetsBindingObserver {
   Timer? _timer;
 
+  /// Last time a reminder was raised, so a queue the user keeps ignoring is
+  /// re-nudged on a slow cadence instead of every tick.
+  DateTime? _lastNudge;
+
+  /// A queued row keeps needing attention until it is classified, so a banner
+  /// that was dismissed (or missed while the phone was locked) is repeated no
+  /// more than once every [_renudgeAfter].
+  static const Duration _renudgeAfter = Duration(minutes: 10);
+
   @override
   void initState() {
     super.initState();
@@ -52,8 +62,9 @@ class _NewTransactionTickerState extends State<NewTransactionTicker>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      // Coming back counts as a fresh moment to spend one nudge on.
+      _lastNudge = null;
       _start();
-      _tick();
     } else {
       _timer?.cancel();
       _timer = null;
@@ -71,7 +82,34 @@ class _NewTransactionTickerState extends State<NewTransactionTicker>
     final NewTransactionWatcher? watcher =
         Provider.of<NewTransactionWatcher?>(context, listen: false);
     if (watcher == null) return;
-    await watcher.checkAndNotify();
+
+    // The setting is read every tick rather than cached: toggling it in
+    // Settings must take effect immediately, without a restart.
+    final SettingsRepository? settings =
+        Provider.of<SettingsRepository?>(context, listen: false);
+    if (settings != null && !settings.balanceAlertsEnabled) return;
+
+    // 1. Rows that appeared since the last check always notify.
+    final int fresh = await watcher.checkAndNotify();
+    if (fresh > 0) {
+      _lastNudge = DateTime.now();
+      return;
+    }
+
+    // 2. Rows that were already seen but still lack a category only re-notify
+    //    on the slow cadence, so the queue cannot be forgotten entirely.
+    final DateTime? last = _lastNudge;
+    final bool due = last == null ||
+        DateTime.now().difference(last) >= _renudgeAfter;
+    if (!due) return;
+
+    final int pending = await watcher.pendingCount();
+    if (pending <= 0) {
+      _lastNudge = null;
+      return;
+    }
+    await watcher.remindPending();
+    _lastNudge = DateTime.now();
   }
 
   @override

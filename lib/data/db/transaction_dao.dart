@@ -402,13 +402,38 @@ class TransactionDao {
     return (rows.first['mx'] as num?)?.toInt() ?? 0;
   }
 
-  /// Rows with id > after, newest first. Powers the new-transaction push.
-  Future<List<Transaction>> rowsAbove(int after, {int limit = 20}) async {
+  /// Rows with id > after. Powers the new-transaction push.
+  ///
+  /// [ascending] walks the backlog oldest-first, which the watcher needs: its
+  /// watermark only moves forwards, so a newest-first page followed by a jump
+  /// to that page's head would strand everything older.
+  Future<List<Transaction>> rowsAbove(
+    int after, {
+    int limit = 20,
+    bool ascending = false,
+  }) async {
     final Database db = await _db;
     final List<Map<String, Object?>> rows = await db.query(
       'transactions',
       where: 'id > ?',
       whereArgs: <Object?>[after],
+      orderBy: ascending ? 'id ASC' : 'id DESC',
+      limit: limit,
+    );
+    return rows.map(Transaction.fromMap).toList(growable: false);
+  }
+
+  /// Rows that still need a category, newest first.
+  ///
+  /// Mirrors the watcher's "needs category" rule — the explicit `pending_review`
+  /// flag, or a row ingested with no category at all — in one indexed query so
+  /// counting the queue does not load the whole ledger.
+  Future<List<Transaction>> rowsNeedingCategory({int limit = 100}) async {
+    final Database db = await _db;
+    final List<Map<String, Object?>> rows = await db.query(
+      'transactions',
+      where: 'pending_review = 1 OR category_id IS NULL OR category_id = ?',
+      whereArgs: <Object?>[''],
       orderBy: 'id DESC',
       limit: limit,
     );
