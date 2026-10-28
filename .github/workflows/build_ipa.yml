@@ -24,11 +24,10 @@ jobs:
 
       - name: Build iOS (unsigned release)
         # `flutter build` runs pod install, resolves the workspace path and
-        # emits Runner.app in a predictable location — the manual pod install +
-        # xcodebuild sequence used to fail on the runner because the generated
-        # Podfile referenced the local Windows Flutter SDK path.
+        # emits Runner.app in a predictable location.
         run: |
-          flutter build ios --release --no-codesign --verbose 2>&1 | tail -n 60
+          set -eo pipefail
+          flutter build ios --release --no-codesign
 
       - name: Ensure Podfile is scoped to the runner
         # The Flutter tool regenerates ios/Flutter/Generated.xcconfig with the
@@ -56,6 +55,13 @@ jobs:
           cp -R "$APP_PATH" Payload/
           zip -r -9 MBBMoney_Cyberpunk_ESign.ipa Payload/
           ls -lh MBBMoney_Cyberpunk_ESign.ipa
+
+          IPA_SIZE=$(stat -f%z MBBMoney_Cyberpunk_ESign.ipa 2>/dev/null || stat -c%s MBBMoney_Cyberpunk_ESign.ipa)
+          echo "IPA size: $IPA_SIZE bytes"
+          if [ "$IPA_SIZE" -lt 1000000 ]; then
+            echo "ERROR: Generated IPA is too small ($IPA_SIZE bytes), build must have failed or binary is missing."
+            exit 1
+          fi
 
       - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4

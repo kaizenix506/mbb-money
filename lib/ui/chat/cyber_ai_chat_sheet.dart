@@ -429,7 +429,7 @@ class _CyberAiChatSheetState extends State<CyberAiChatSheet> {
                     const Icon(Icons.check_circle_rounded, color: AppColors.neonGreen, size: 16),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: const Text(
+                      child: Text(
                         'ĐÃ TỰ ĐỘNG LƯU: ${extracted.description} (${Fmt.dong(extracted.amount)}) → ${extracted.categoryName}',
                         style: const TextStyle(
                           fontSize: 11.5,

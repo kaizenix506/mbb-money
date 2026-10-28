@@ -451,93 +451,6 @@ class _GlowButton extends StatelessWidget {
   }
 }
 
-/// Minimal detail sheet with the raw SMS visible — important when a parse was
-/// wrong and the user wants to see exactly what the bank said.
-class _QuickDetailSheet extends StatelessWidget {
-  const _QuickDetailSheet({required this.transaction});
-
-  final Transaction transaction;
-
-  @override
-  Widget build(BuildContext context) {
-    final String amount = transaction.type == TxType.transfer
-        ? Fmt.amount(transaction.amount)
-        : Fmt.signed(transaction.signedAmount);
-
-    return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.bgMid,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      padding: EdgeInsets.fromLTRB(
-        22,
-        12,
-        22,
-        22 + MediaQuery.of(context).padding.bottom,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Center(
-            child: Container(
-              width: 38,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.18),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-          Text(
-            amount,
-            style: AppText.balance.copyWith(
-              fontSize: 28,
-              color: transaction.isIncome ? AppColors.mint : AppColors.ink,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            transaction.description,
-            style: const TextStyle(fontSize: 14, color: AppColors.ink),
-          ),
-          const SizedBox(height: 18),
-          _DetailRow('Thời gian', '${Fmt.fullDate(transaction.occurredAt)} · ${Fmt.time(transaction.occurredAt)}'),
-            _DetailRow('Nguồn', transaction.source.badge),
-          if (transaction.referenceNumber != null)
-            _DetailRow('Mã tham chiếu', transaction.referenceNumber!),
-          if (transaction.rawText != null) ...<Widget>[
-            const SizedBox(height: 14),
-            const Text(
-                    'Tin nhắn gốc',
-              style: TextStyle(fontSize: 11, color: AppColors.inkFaint),
-            ),
-            const SizedBox(height: 6),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                color: Colors.white.withValues(alpha: 0.04),
-                border: Border.all(color: AppColors.strokeFaint),
-              ),
-              child: SelectableText(
-                transaction.rawText!,
-                style: const TextStyle(
-                  fontSize: 11.5,
-                  height: 1.55,
-                  color: AppColors.inkDim,
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
 class _WishlistSummaryBanner extends StatelessWidget {
   const _WishlistSummaryBanner();
 
@@ -671,38 +584,6 @@ class _WishlistSummaryBanner extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _DetailRow extends StatelessWidget {
-  const _DetailRow(this.label, this.value);
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          SizedBox(
-            width: 110,
-            child: Text(
-              label,
-              style: const TextStyle(fontSize: 12, color: AppColors.inkFaint),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(fontSize: 12.5, color: AppColors.ink),
-            ),
-          ),
-        ],
       ),
     );
   }
