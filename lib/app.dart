@@ -14,6 +14,7 @@ import 'ui/shell.dart';
 import 'ui/stores/transaction_store.dart';
 import 'ui/transactions/transactions_page.dart';
 import 'ui/widgets/common.dart';
+import 'ui/wishlist/wishlist_page.dart';
 
 class MbbMoneyApp extends StatelessWidget {
   const MbbMoneyApp({super.key});
@@ -34,6 +35,7 @@ class MbbMoneyApp extends StatelessWidget {
         ReviewPage.route: (_) => const _Slate(ReviewPage()),
         SettingsPage.route: (_) => const _Slate(SettingsPage()),
         ManageCategoriesPage.route: (_) => const _Slate(ManageCategoriesPage()),
+        WishlistPage.route: (_) => const _Slate(WishlistPage()),
       },
     );
   }

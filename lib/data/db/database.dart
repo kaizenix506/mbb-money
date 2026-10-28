@@ -11,7 +11,7 @@ class AppDatabase {
   static final AppDatabase instance = AppDatabase._();
 
   static const String fileName = 'mbb_money.db';
-  static const int version = 2;
+  static const int version = 3;
 
   static final Map<String, Database> _open = <String, Database>{};
 
@@ -98,6 +98,7 @@ class AppDatabase {
     ''');
 
     await _createInternalTables(db);
+    await _createWishlistTable(db);
     await _seedAccount(db);
   }
 
@@ -113,6 +114,21 @@ class AppDatabase {
     ''');
   }
 
+  Future<void> _createWishlistTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS wishlist_items (
+        id             INTEGER PRIMARY KEY AUTOINCREMENT,
+        title          TEXT    NOT NULL,
+        expected_price INTEGER NOT NULL CHECK (expected_price >= 0),
+        actual_price   INTEGER,
+        is_bought      INTEGER NOT NULL DEFAULT 0,
+        bought_at      INTEGER,
+        created_at     INTEGER NOT NULL,
+        notes          TEXT
+      )
+    ''');
+  }
+
   Future<void> _upgrade(Database db, int from, int to) async {
     // Keep this exhaustive so a schema change never silently drops history.
     if (from < 1) {
@@ -123,6 +139,10 @@ class AppDatabase {
       // v2 adds `internal_state`, which stores notification bookkeeping
       // (e.g. the last announced transaction id).
       await _createInternalTables(db);
+    }
+    if (from < 3) {
+      // v3 adds `wishlist_items` table for shopping notes & budget planning.
+      await _createWishlistTable(db);
     }
   }
 

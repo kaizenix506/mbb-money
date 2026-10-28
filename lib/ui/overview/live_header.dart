@@ -8,6 +8,7 @@ import '../../core/theme.dart';
 import '../../core/vn_clock.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../widgets/cyber_avatar.dart';
+import '../wishlist/wishlist_page.dart';
 
 /// Top-of-overview header: avatar, greeting and a **live** UTC+7 clock.
 ///
@@ -87,6 +88,13 @@ class LiveHeader extends StatelessWidget {
                       ],
                     ),
                   ),
+                  _HeaderIconButton(
+                    icon: Icons.shopping_bag_rounded,
+                    label: 'Mua sắm',
+                    onTap: () =>
+                        Navigator.of(context).pushNamed(WishlistPage.route),
+                  ),
+                  const SizedBox(width: 8),
                   _HeaderIconButton(
                     icon: Icons.category_rounded,
                     label: 'Danh mục',

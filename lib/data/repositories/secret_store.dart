@@ -109,6 +109,16 @@ class SecretStore extends ChangeNotifier {
     return verifiedGeminiKeys.first;
   }
 
+  String? get rawGeminiKey => _geminiCached;
+  bool get hasGeminiApiKey =>
+      _geminiCached != null && _geminiCached!.isNotEmpty;
+  String get maskedGeminiApiKey {
+    final String? k = _geminiCached;
+    if (k == null || k.isEmpty) return 'Chưa lưu';
+    if (k.length <= 10) return '••••••••';
+    return '${k.substring(0, 6)}••••••••${k.substring(k.length - 4)}';
+  }
+
   Future<void> saveGeminiApiKey(String key) async {
     final String trimmed = key.trim();
     _geminiCached = trimmed;
@@ -121,6 +131,16 @@ class SecretStore extends ChangeNotifier {
     }
     await _prefs?.setString(_kGeminiKey, trimmed);
 
+    notifyListeners();
+  }
+
+  Future<void> clearGeminiApiKey() async {
+    try {
+      await _storage.delete(key: _kGeminiKey);
+    } catch (_) {}
+    _prefs ??= await SharedPreferences.getInstance();
+    await _prefs?.remove(_kGeminiKey);
+    _geminiCached = null;
     notifyListeners();
   }
 

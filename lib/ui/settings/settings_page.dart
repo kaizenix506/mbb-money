@@ -34,6 +34,20 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _testOk = false;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final SecretStore secrets = context.read<SecretStore>();
+      final String key = await secrets.readGeminiApiKey();
+      if (mounted && key.isNotEmpty && _geminiCtrl.text.isEmpty) {
+        setState(() {
+          _geminiCtrl.text = key;
+        });
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _tokenCtrl.dispose();
     _accountCtrl.dispose();
@@ -445,12 +459,22 @@ class _CyberSepayCard extends StatelessWidget {
   }
 }
 
-class _CyberAiConfigCard extends StatelessWidget {
+class _CyberAiConfigCard extends StatefulWidget {
   const _CyberAiConfigCard({required this.controller});
   final TextEditingController controller;
 
   @override
+  State<_CyberAiConfigCard> createState() => _CyberAiConfigCardState();
+}
+
+class _CyberAiConfigCardState extends State<_CyberAiConfigCard> {
+  bool _obscure = true;
+
+  @override
   Widget build(BuildContext context) {
+    final SecretStore secrets = context.watch<SecretStore>();
+    final bool hasKey = secrets.hasGeminiApiKey;
+
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -471,7 +495,8 @@ class _CyberAiConfigCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: AppColors.neonViolet),
                 ),
-                child: const Icon(Icons.psychology, color: AppColors.neonViolet, size: 22),
+                child: const Icon(Icons.psychology,
+                    color: AppColors.neonViolet, size: 22),
               ),
               const SizedBox(width: 12),
               const Expanded(
@@ -480,11 +505,15 @@ class _CyberAiConfigCard extends StatelessWidget {
                   children: [
                     Text(
                       'Trợ lý ảo A.R.I.A 2077',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.ink),
+                      style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.ink),
                     ),
                     Text(
                       'AI phân tích chi tiêu & cố vấn tài chính',
-                      style: TextStyle(fontSize: 12, color: AppColors.neonViolet),
+                      style:
+                          TextStyle(fontSize: 12, color: AppColors.neonViolet),
                     ),
                   ],
                 ),
@@ -493,44 +522,134 @@ class _CyberAiConfigCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           const Text(
-            'Mặc định A.R.I.A chạy bằng thuật toán tài chính ngoại tuyến siêu nhanh trên máy (100% offline). Nếu muốn dùng mô hình ngôn ngữ lớn (Gemini), bạn có thể nhập Gemini API Key miễn phí dưới đây.',
-            style: TextStyle(fontSize: 12, color: AppColors.inkDim, height: 1.4),
+            'A.R.I.A sử dụng mô hình Gemini xử lý ngôn ngữ tự nhiên để tự động bắt số tiền, chọn danh mục và tư vấn tài chính. Key của bạn được lưu mã hóa an toàn trên thiết bị.',
+            style:
+                TextStyle(fontSize: 12, color: AppColors.inkDim, height: 1.4),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
+
+          // Active model indicator
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: const Color(0x6604060C),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppColors.strokeFaint),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.auto_awesome, color: AppColors.neonYellow, size: 14),
+                SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Model đang dùng: Gemini 3.5 Flash Lite (Tốc độ cao)',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.neonYellow,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          if (hasKey)
+            Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.neonGreen.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.neonGreen, width: 0.8),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.check_circle_rounded,
+                      color: AppColors.neonGreen, size: 14),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'ĐÃ LƯU AI KEY: ${secrets.maskedGeminiApiKey}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.neonGreen,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
           TextField(
-            controller: controller,
-            obscureText: true,
-            style: const TextStyle(color: AppColors.ink, fontSize: 13),
+            controller: widget.controller,
+            obscureText: _obscure,
+            style: const TextStyle(
+                color: AppColors.ink,
+                fontSize: 13,
+                fontFamily: 'Courier New'),
             decoration: InputDecoration(
-              hintText: 'Nhập Gemini API Key (tuỳ chọn)...',
-              hintStyle: const TextStyle(color: AppColors.inkFaint, fontSize: 12),
+              labelText: 'Gemini API Key',
+              labelStyle: const TextStyle(color: AppColors.neonViolet),
+              hintText: 'Nhập Gemini API Key...',
+              hintStyle:
+                  const TextStyle(color: AppColors.inkFaint, fontSize: 12),
               filled: true,
               fillColor: AppColors.bgTop,
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _obscure ? Icons.visibility_off : Icons.visibility,
+                  color: AppColors.neonViolet,
+                  size: 20,
+                ),
+                onPressed: () => setState(() => _obscure = !_obscure),
+              ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: const BorderSide(color: AppColors.stroke),
               ),
             ),
           ),
-          const SizedBox(height: 10),
-          Align(
-            alignment: Alignment.centerRight,
-            child: OutlinedButton(
-              onPressed: () async {
-                final key = controller.text.trim();
-                await context.read<SecretStore>().saveGeminiApiKey(key);
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Đã cập nhật AI Key!')),
-                  );
-                }
-              },
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.neonViolet,
-                side: const BorderSide(color: AppColors.neonViolet),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: () async {
+                  await secrets.clearGeminiApiKey();
+                  widget.controller.clear();
+                  final key = await secrets.readGeminiApiKey();
+                  widget.controller.text = key;
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content: Text('Đã đặt lại AI Key mặc định!')),
+                    );
+                  }
+                },
+                child: const Text('Đặt lại mặc định',
+                    style: TextStyle(color: AppColors.inkFaint, fontSize: 12)),
               ),
-              child: const Text('Lưu AI Key'),
-            ),
+              const SizedBox(width: 8),
+              OutlinedButton(
+                onPressed: () async {
+                  final key = widget.controller.text.trim();
+                  await secrets.saveGeminiApiKey(key);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Đã cập nhật AI Key!')),
+                    );
+                  }
+                },
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.neonViolet,
+                  side: const BorderSide(color: AppColors.neonViolet),
+                ),
+                child: const Text('Lưu AI Key'),
+              ),
+            ],
           ),
         ],
       ),

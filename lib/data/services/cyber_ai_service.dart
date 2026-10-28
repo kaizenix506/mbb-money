@@ -17,6 +17,7 @@ class ChatMessage {
     required this.timestamp,
     this.extractedTx,
     this.latencyMs,
+    this.modelName,
   });
 
   final String text;
@@ -27,6 +28,7 @@ class ChatMessage {
   /// Round-trip time of the model call, shown as a small badge so Hoàng can see
   /// how fast A.R.I.A actually answered.
   final int? latencyMs;
+  final String? modelName;
 }
 
 class ExtractedExpense {
@@ -76,12 +78,15 @@ class CyberAiService with ChangeNotifier {
   final SecretStore _secrets;
   final List<ChatMessage> _messages = [];
   bool _isThinking = false;
+  String _activeModel = 'gemini-3.5-flash-lite';
 
   /// `ngữ cảnh câu` → kết quả đã parse. Cleared when it grows too large.
   final Map<String, ExtractedExpense> _cache = <String, ExtractedExpense>{};
 
   List<ChatMessage> get messages => List.unmodifiable(_messages);
   bool get isThinking => _isThinking;
+  String get activeModel => _activeModel;
+  String get activeModelLabel => _activeModel.toUpperCase().replaceAll('-', ' ');
 
   // ------------------------------------------------------------ public API
 
@@ -112,6 +117,7 @@ class CyberAiService with ChangeNotifier {
 
     ExtractedExpense? extracted;
     String reply = '';
+    String modelUsed = 'A.R.I.A Local Engine';
 
     if (geminiKey != null && geminiKey.isNotEmpty) {
       try {
@@ -123,6 +129,8 @@ class CyberAiService with ChangeNotifier {
         );
         reply = result.reply;
         extracted = result.expense;
+        modelUsed = result.modelUsed;
+        _activeModel = result.modelUsed;
         if (extracted != null) {
           _cache[_cacheKey(trimmed)] = extracted;
         }
@@ -133,6 +141,7 @@ class CyberAiService with ChangeNotifier {
 
     // 2) If Gemini did not reply (offline or failed), use deterministic local SmartParser!
     if (reply.isEmpty) {
+      modelUsed = 'A.R.I.A Local Engine (<1ms)';
       extracted = SmartParser.parse(
         trimmed,
         knownCategories: categoryLabels.keys.toList(growable: false),
@@ -154,6 +163,7 @@ class CyberAiService with ChangeNotifier {
         timestamp: VnClock.now(),
         extractedTx: extracted,
         latencyMs: sw.elapsedMilliseconds,
+        modelName: modelUsed,
       ),
     );
 
@@ -187,7 +197,7 @@ class CyberAiService with ChangeNotifier {
         '💡 Cứ nói “uống nước 20k” hay “cafe 35k”, tôi ghi ngay.';
   }
 
-  Future<({String reply, ExtractedExpense? expense})> _askGemini(
+  Future<({String reply, ExtractedExpense? expense, String modelUsed})> _askGemini(
     String apiKey,
     String prompt,
     List<Transaction> expenses, {
@@ -350,10 +360,12 @@ QUY TẮC:
     final http.Client client = http.Client();
     try {
       http.Response? ok;
+      String successfulModel = models.first;
       for (final String m in models) {
         final http.Response? r = await _tryModel(client, apiKey, m, payload);
         if (r != null && r.statusCode == 200) {
           ok = r;
+          successfulModel = m;
           break;
         }
       }
@@ -368,9 +380,14 @@ QUY TẮC:
         final String cleanText = raw.trim();
         // If the model returned plain conversational text instead of JSON
         if (cleanText.isNotEmpty && !cleanText.startsWith('{')) {
-          return (reply: cleanText, expense: null);
+          return (reply: cleanText, expense: null, modelUsed: successfulModel);
         }
-        return (reply: 'Chào Hoàng! A.R.I.A đã sẵn sàng hỗ trợ ghi chép và quản lý chi tiêu rồi đây. ✨', expense: null);
+        return (
+          reply:
+              'Chào Hoàng! A.R.I.A đã sẵn sàng hỗ trợ ghi chép và quản lý chi tiêu rồi đây. ✨',
+          expense: null,
+          modelUsed: successfulModel,
+        );
       }
 
       String reply = (parsed['reply'] ??
@@ -428,6 +445,7 @@ QUY TẮC:
             date: when,
             confidence: 0.95,
           ),
+          modelUsed: successfulModel,
         );
       }
 
@@ -446,6 +464,7 @@ QUY TẮC:
       return (
         reply: reply,
         expense: null,
+        modelUsed: successfulModel,
       );
     } finally {
       client.close();

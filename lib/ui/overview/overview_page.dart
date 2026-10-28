@@ -19,6 +19,8 @@ import '../transactions/edit_transaction_sheet.dart';
 import '../widgets/balance_hero_card.dart';
 import '../widgets/charts.dart';
 import '../widgets/common.dart';
+import '../../data/stores/wishlist_store.dart';
+import '../wishlist/wishlist_page.dart';
 import 'live_header.dart';
 
 /// Home tab — the "Midnight Glass" screen.
@@ -123,6 +125,8 @@ class _OverviewPageState extends State<OverviewPage> {
               ),
               const SizedBox(height: 14),
               _MonthInsights(store: store),
+              const SizedBox(height: 14),
+              const _WishlistSummaryBanner(),
               if (store.pendingReviewCount > 0)
                 _ReviewBanner(count: store.pendingReviewCount),
               SectionHeader(
@@ -219,12 +223,22 @@ class _MonthInsights extends StatelessWidget {
         .skip(topN)
         .fold<int>(0, (int s, ({CategoryRef category, int total}) e) => s + e.total);
 
+    const List<Color> donutPalette = <Color>[
+      Color(0xFF00F0FF),
+      Color(0xFFFF0055),
+      Color(0xFFFFE600),
+      Color(0xFF39FF14),
+      Color(0xFF9D00FF),
+      Color(0xFFFF7700),
+      Color(0xFF00E5FF),
+      Color(0xFFFF3366),
+    ];
     final List<DonutSlice> slices = <DonutSlice>[
       for (final ({CategoryRef category, int total}) c in head)
         DonutSlice(
           label: c.category.label,
           value: c.total,
-          color: c.category.tint,
+          color: donutPalette[head.indexOf(c) % donutPalette.length],
         ),
       if (tailTotal > 0)
         DonutSlice(
@@ -270,10 +284,10 @@ class _MonthInsights extends StatelessWidget {
                                 height: 7,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: c.category.tint,
+                                  color: donutPalette[head.indexOf(c) % donutPalette.length],
                                   boxShadow: <BoxShadow>[
                                     BoxShadow(
-                                      color: c.category.tint
+                                      color: donutPalette[head.indexOf(c) % donutPalette.length]
                                           .withValues(alpha: 0.6),
                                       blurRadius: 6,
                                     ),
@@ -519,6 +533,144 @@ class _QuickDetailSheet extends StatelessWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _WishlistSummaryBanner extends StatelessWidget {
+  const _WishlistSummaryBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final WishlistStore wishlist = context.watch<WishlistStore>();
+    final int remaining = wishlist.remainingBudget;
+    final int budget = wishlist.totalBudget;
+    final int plannedCount = wishlist.planned.length;
+    final int boughtCount = wishlist.bought.length;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: InkWell(
+        onTap: () => Navigator.of(context).pushNamed(WishlistPage.route),
+        borderRadius: BorderRadius.circular(AppRadius.card),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: const Color(0xB00B1120),
+            borderRadius: BorderRadius.circular(AppRadius.card),
+            border: Border.all(
+              color: remaining < 0
+                  ? AppColors.neonPink.withValues(alpha: 0.5)
+                  : AppColors.neonCyan.withValues(alpha: 0.4),
+              width: 1.2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: remaining < 0
+                    ? AppColors.neonPink.withValues(alpha: 0.12)
+                    : AppColors.neonCyan.withValues(alpha: 0.12),
+                blurRadius: 18,
+                spreadRadius: 1,
+              ),
+            ],
+          ),
+          child: Row(
+            children: <Widget>[
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.neonCyan.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.neonCyan, width: 1.2),
+                ),
+                child: const Icon(
+                  Icons.shopping_bag_outlined,
+                  color: AppColors.neonCyan,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Row(
+                      children: <Widget>[
+                        const Text(
+                          'DỰ TOÁN MUA SẮM',
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1.2,
+                            color: AppColors.neonCyan,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        if (budget > 0)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: remaining < 0
+                                  ? AppColors.neonPink.withValues(alpha: 0.15)
+                                  : AppColors.neonGreen.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: remaining < 0
+                                    ? AppColors.neonPink
+                                    : AppColors.neonGreen,
+                                width: 0.8,
+                              ),
+                            ),
+                            child: Text(
+                              remaining < 0 ? 'VƯỢT NGÂN SÁCH' : 'CÒN HẠN MỨC',
+                              style: TextStyle(
+                                fontSize: 8.5,
+                                fontWeight: FontWeight.w900,
+                                color: remaining < 0
+                                    ? AppColors.neonPink
+                                    : AppColors.neonGreen,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      budget > 0
+                          ? 'Ngân sách còn: ${Fmt.dong(remaining)}'
+                          : (plannedCount > 0
+                              ? 'Dự kiến: ${Fmt.dong(wishlist.totalPlanned)} · Điền ngân sách'
+                              : 'Chưa có món muốn mua · Chạm để thêm'),
+                      style: TextStyle(
+                        fontFamily: budget > 0 ? 'Courier New' : 'Inter',
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color:
+                            remaining < 0 ? AppColors.neonPink : AppColors.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Đã mua ${Fmt.dong(wishlist.totalBought)} ($boughtCount món) · Muốn mua $plannedCount món',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: AppColors.inkDim,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.neonCyan,
+                size: 22,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

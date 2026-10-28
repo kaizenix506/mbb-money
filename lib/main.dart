@@ -12,7 +12,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart' hide Transaction;
 
 import 'app.dart';
+import 'data/db/database.dart';
 import 'data/db/transaction_dao.dart';
+import 'data/db/wishlist_dao.dart';
 import 'data/models/transaction.dart';
 import 'data/repositories/secret_store.dart';
 import 'data/repositories/settings_repository.dart';
@@ -24,6 +26,7 @@ import 'data/services/new_transaction_watcher.dart';
 import 'data/services/notification_service.dart';
 import 'data/services/webhook_ingest_service.dart';
 import 'data/stores/category_store.dart';
+import 'data/stores/wishlist_store.dart';
 import 'ui/stores/transaction_store.dart';
 
 /// Where the SQLite file lives.
@@ -72,6 +75,9 @@ Future<void> main() async {
 
   final CyberAiService ai = CyberAiService(secrets: secrets);
   final CategoryStore categories = CategoryStore();
+  final WishlistDao wishlistDao =
+      WishlistDao(AppDatabase.instance.databaseIn(_dbDirectory));
+  final WishlistStore wishlistStore = WishlistStore(dao: wishlistDao);
 
   // Worker + notifications: both are best-effort. A failure here must never
   // block the first frame, so they are fired without awaiting.
@@ -108,6 +114,7 @@ Future<void> main() async {
         ChangeNotifierProvider<SecretStore>.value(value: secrets),
         ChangeNotifierProvider<TransactionStore>.value(value: store),
         ChangeNotifierProvider<CategoryStore>.value(value: categories),
+        ChangeNotifierProvider<WishlistStore>.value(value: wishlistStore),
         ChangeNotifierProvider<CyberAiService>.value(value: ai),
         Provider<TransactionRepository>.value(value: repo),
         Provider<SyncService>.value(value: sync),

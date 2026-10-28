@@ -116,7 +116,7 @@ class CategoryStore extends ChangeNotifier {
       id: 'food',
       label: 'Ăn uống',
       iconKey: 'food',
-      colorValue: 0xFFFFB066,
+      colorValue: 0xFFFF7700,
     ),
     const CategoryItem(
       id: 'drink',
@@ -128,19 +128,19 @@ class CategoryStore extends ChangeNotifier {
       id: 'coffee',
       label: 'Cà phê',
       iconKey: 'coffee',
-      colorValue: 0xFFE0A46A,
+      colorValue: 0xFFFFB800,
     ),
     const CategoryItem(
       id: 'transport',
       label: 'Đi lại',
       iconKey: 'transport',
-      colorValue: 0xFF6CA3FF,
+      colorValue: 0xFF2979FF,
     ),
     const CategoryItem(
       id: 'shopping',
       label: 'Mua sắm',
       iconKey: 'shopping',
-      colorValue: 0xFFFF0055,
+      colorValue: 0xFFFF007F,
     ),
     const CategoryItem(
       id: 'bills',
@@ -152,7 +152,7 @@ class CategoryStore extends ChangeNotifier {
       id: 'health',
       label: 'Sức khỏe',
       iconKey: 'health',
-      colorValue: 0xFFFF3366,
+      colorValue: 0xFFFF1744,
     ),
     const CategoryItem(
       id: 'entertainment',
@@ -164,19 +164,19 @@ class CategoryStore extends ChangeNotifier {
       id: 'education',
       label: 'Giáo dục',
       iconKey: 'education',
-      colorValue: 0xFF39FF14,
+      colorValue: 0xFF00E676,
     ),
     const CategoryItem(
       id: 'family',
       label: 'Gia đình',
       iconKey: 'family',
-      colorValue: 0xFFFF77A9,
+      colorValue: 0xFFFF4081,
     ),
     const CategoryItem(
       id: 'other',
       label: 'Khác',
       iconKey: 'other',
-      colorValue: 0xFF8B9BB4,
+      colorValue: 0xFF78909C,
     ),
   ];
 

@@ -38,7 +38,7 @@ class TransactionStore extends ChangeNotifier {
   List<Transaction> _rangeRows = const <Transaction>[];
   PeriodTotals _rangeTotals = PeriodTotals.empty;
   Map<DateTime, int> _rangeDaily = const <DateTime, int>{};
-  bool _rangeLoading = true;
+  bool _rangeLoading = false;
   bool _rangeLoadingMore = false;
   bool _rangeHasMore = true;
 
@@ -234,21 +234,29 @@ class TransactionStore extends ChangeNotifier {
 
   /// First page + totals + daily series for the current range.
   Future<void> _loadRangeFirstPage() async {
+    _rangeLoading = true;
     final int generation = ++_rangeGeneration;
     final ({DateTime from, DateTime to}) w = rangeWindow;
 
-    final List<Object> results = await Future.wait<Object>(<Future<Object>>[
-      _repo.pageInRange(from: w.from, to: w.to, limit: 60),
-      _repo.totalsInRange(from: w.from, to: w.to),
-      _repo.dailyExpenses(from: w.from, to: w.to),
-    ]);
-    if (generation != _rangeGeneration) return;
+    try {
+      final List<Object> results = await Future.wait<Object>(<Future<Object>>[
+        _repo.pageInRange(from: w.from, to: w.to, limit: 60),
+        _repo.totalsInRange(from: w.from, to: w.to),
+        _repo.dailyExpenses(from: w.from, to: w.to),
+      ]);
+      if (generation != _rangeGeneration) return;
 
-    final List<Transaction> page = results[0] as List<Transaction>;
-    _rangeRows = page;
-    _rangeTotals = results[1] as PeriodTotals;
-    _rangeDaily = results[2] as Map<DateTime, int>;
-    _rangeHasMore = page.length == 60;
+      final List<Transaction> page = results[0] as List<Transaction>;
+      _rangeRows = page;
+      _rangeTotals = results[1] as PeriodTotals;
+      _rangeDaily = results[2] as Map<DateTime, int>;
+      _rangeHasMore = page.length == 60;
+    } finally {
+      if (generation == _rangeGeneration) {
+        _rangeLoading = false;
+        notifyListeners();
+      }
+    }
   }
 
   Future<void> nextMonth() async {

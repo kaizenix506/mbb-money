@@ -11,7 +11,7 @@ enum Category {
     id: 'food',
     label: 'Ăn uống',
     icon: Icons.restaurant_rounded,
-    tint: Color(0xFFFFB066),
+    tint: Color(0xFFFF7700),
   ),
   drink(
     id: 'drink',
@@ -23,49 +23,49 @@ enum Category {
     id: 'coffee',
     label: 'Cà phê',
     icon: Icons.local_cafe_rounded,
-    tint: Color(0xFFE0A46A),
+    tint: Color(0xFFFFB800),
   ),
   transport(
     id: 'transport',
     label: 'Đi lại',
     icon: Icons.directions_car_filled_rounded,
-    tint: Color(0xFF6CA3FF),
+    tint: Color(0xFF2979FF),
   ),
   shopping(
     id: 'shopping',
     label: 'Mua sắm',
     icon: Icons.shopping_bag_rounded,
-    tint: Color(0xFFFF7AA2),
+    tint: Color(0xFFFF007F),
   ),
   bills(
     id: 'bills',
     label: 'Hóa đơn',
     icon: Icons.receipt_long_rounded,
-    tint: Color(0xFFB48CFF),
+    tint: Color(0xFF9D00FF),
   ),
   health(
     id: 'health',
     label: 'Sức khỏe',
     icon: Icons.favorite_rounded,
-    tint: Color(0xFFFF6B6B),
+    tint: Color(0xFFFF1744),
   ),
   entertainment(
     id: 'entertainment',
     label: 'Giải trí',
     icon: Icons.sports_esports_rounded,
-    tint: Color(0xFFFFE600),
+    tint: Color(0xFFFFEA00),
   ),
   education(
     id: 'education',
     label: 'Giáo dục',
     icon: Icons.menu_book_rounded,
-    tint: Color(0xFF39FF14),
+    tint: Color(0xFF00E676),
   ),
   family(
     id: 'family',
     label: 'Gia đình',
     icon: Icons.family_restroom_rounded,
-    tint: Color(0xFFFF77A9),
+    tint: Color(0xFFFF4081),
   ),
   salary(
     id: 'salary',
@@ -77,13 +77,13 @@ enum Category {
     id: 'transfer',
     label: 'Chuyển khoản',
     icon: Icons.swap_horiz_rounded,
-    tint: Color(0xFF9AA5BC),
+    tint: Color(0xFF00B0FF),
   ),
   other(
     id: 'other',
     label: 'Khác',
     icon: Icons.more_horiz_rounded,
-    tint: Color(0xFF7C8598),
+    tint: Color(0xFF78909C),
   );
 
   const Category({

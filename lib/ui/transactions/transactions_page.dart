@@ -103,15 +103,6 @@ class _TransactionsPageState extends State<TransactionsPage> {
                       onPressed: () =>
                           Navigator.of(context).pushNamed('/categories'),
                     ),
-                    if (store.rangeLoading)
-                      const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: AppColors.mint,
-                        ),
-                      ),
                   ],
                 ),
               ),
@@ -123,7 +114,21 @@ class _TransactionsPageState extends State<TransactionsPage> {
               ),
             ),
             SliverToBoxAdapter(child: _RangeSummary(store: store)),
-            if (groups.isEmpty)
+            if (store.rangeLoading && groups.isEmpty)
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.mint,
+                    ),
+                  ),
+                ),
+              )
+            else if (groups.isEmpty)
               SliverFillRemaining(
                 hasScrollBody: false,
                 child: EmptyHint(

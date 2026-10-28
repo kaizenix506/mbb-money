@@ -74,14 +74,14 @@ class _CyberAiChatSheetState extends State<CyberAiChatSheet> {
     // window and de-duplicate by id.
     final Map<int, Transaction> byId = <int, Transaction>{};
     for (final Transaction t in txStore.monthTransactions) {
-      if (t.isExpense) byId[t.id ?? t.occurredAt.millisecondsSinceEpoch] = t;
+      if (t.isExpense) byId[t.id] = t;
     }
     final DateTime now = VnClock.localNow();
     final DateTime last7 = DateTime(now.year, now.month, now.day)
         .subtract(const Duration(days: 6));
     for (final Transaction t in txStore.rangeRows) {
       if (t.isExpense && !t.occurredAt.isBefore(last7)) {
-        byId[t.id ?? t.occurredAt.millisecondsSinceEpoch] = t;
+        byId[t.id] = t;
       }
     }
     final expenses = byId.values.toList()
@@ -213,9 +213,9 @@ class _CyberAiChatSheetState extends State<CyberAiChatSheet> {
                                     borderRadius: BorderRadius.circular(4),
                                     border: Border.all(color: AppColors.neonGreen, width: 0.8),
                                   ),
-                                  child: const Text(
-                                    'GEMINI 3.8 FLASH',
-                                    style: TextStyle(
+                                  child: Text(
+                                    aiService.activeModelLabel,
+                                    style: const TextStyle(
                                       fontSize: 8.5,
                                       fontWeight: FontWeight.w900,
                                       color: AppColors.neonGreen,
@@ -429,7 +429,7 @@ class _CyberAiChatSheetState extends State<CyberAiChatSheet> {
                     const Icon(Icons.check_circle_rounded, color: AppColors.neonGreen, size: 16),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text(
+                      child: const Text(
                         'ĐÃ TỰ ĐỘNG LƯU: ${extracted.description} (${Fmt.dong(extracted.amount)}) → ${extracted.categoryName}',
                         style: const TextStyle(
                           fontSize: 11.5,
@@ -450,7 +450,7 @@ class _CyberAiChatSheetState extends State<CyberAiChatSheet> {
                   Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: Text(
-                      '${msg.latencyMs}ms',
+                      '${msg.modelName != null ? "${msg.modelName} · " : ""}${msg.latencyMs}ms',
                       style: TextStyle(
                         fontFamily: 'Courier New',
                         fontSize: 9,
