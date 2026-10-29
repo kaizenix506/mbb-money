@@ -152,6 +152,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _testConnection(SecretStore secrets) async {
+    final SyncService sync = context.read<SyncService>();
     final String? token = await secrets.readSepayToken();
     if (token == null || token.isEmpty) {
       _snack('Chưa nhập hoặc chưa lưu token');
@@ -163,7 +164,7 @@ class _SettingsPageState extends State<SettingsPage> {
       _testResult = null;
     });
 
-    final SyncReport report = await context.read<SyncService>().testConnection(token);
+    final SyncReport report = await sync.testConnection(token);
     if (!mounted) return;
     setState(() {
       _busy = false;
@@ -720,6 +721,8 @@ class _CyberWebhookCardState extends State<_CyberWebhookCard> {
     });
     final SettingsRepository settings = context.read<SettingsRepository>();
     final SecretStore secrets = context.read<SecretStore>();
+    final WebhookIngestService svc =
+        context.read<WebhookIngestService>();
 
     await settings.setWebhookUrl(_url.text);
     if (_token.text.trim().isNotEmpty) {
@@ -727,7 +730,6 @@ class _CyberWebhookCardState extends State<_CyberWebhookCard> {
       _token.clear();
     }
 
-    final WebhookIngestService svc = context.read<WebhookIngestService>();
     final WebhookPullReport report = await svc.pull();
 
     if (!mounted) return;

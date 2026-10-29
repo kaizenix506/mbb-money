@@ -100,7 +100,7 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
             categoryId: _category?.id,
           );
       if (!mounted) return;
-      HapticFeedback.mediumImpact();
+      HapticFeedback.mediumImpact().ignore();
       Navigator.of(context).pop(true);
     } on Object catch (e) {
       if (!mounted) return;
@@ -321,6 +321,7 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
     );
     if (date == null) return;
 
+    if (!mounted) return;
     final TimeOfDay? time = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.fromDateTime(_date),

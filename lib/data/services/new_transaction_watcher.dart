@@ -103,7 +103,7 @@ class NewTransactionWatcher {
         );
         if (batch.isEmpty) break;
         fresh.addAll(batch);
-        cursor = batch.last.id ?? cursor;
+        cursor = batch.last.id;
         if (cursor >= max) break;
       }
       if (fresh.isEmpty) return 0;
@@ -183,6 +183,45 @@ class NewTransactionWatcher {
     }
   }
 
+  // --------------------------------------------------- write-through hooks
+
+  /// Called by the ledger *after* a row was inserted by a path that does not go
+  /// through the (periodically-run) sync watcher — manual entry and the AI chat.
+  ///
+  /// Advancing the watermark here is what stops the foreground ticker from
+  /// reading such a row as "new" and announcing it a second time. The row is
+  /// still covered by [remindPending], which re-surfaces anything left without a
+  /// category, so nothing is lost by moving the cursor forward.
+  Future<void> noteInserted(int id) async {
+    if (id <= 0) return;
+    try {
+      await seedIfNeeded();
+      final int watermark =
+          int.tryParse(await _dao.readInternal(_kWatermark) ?? '') ?? 0;
+      if (id > watermark) {
+        await _dao.writeInternal(_kWatermark, '$id');
+      }
+    } on Object catch (e) {
+      debugPrint('NewTransactionWatcher.noteInserted failed: $e');
+    }
+  }
+
+  /// Called after an existing row was edited, so classifying a row stops the
+  /// periodic reminder without needing another ledger scan.
+  Future<void> noteUpdated(int id) async {
+    if (id <= 0) return;
+    try {
+      await seedIfNeeded();
+      final int watermark =
+          int.tryParse(await _dao.readInternal(_kWatermark) ?? '') ?? 0;
+      if (id > watermark) {
+        await _dao.writeInternal(_kWatermark, '$id');
+      }
+    } on Object catch (e) {
+      debugPrint('NewTransactionWatcher.noteUpdated failed: $e');
+    }
+  }
+
   /// A row is worth a nudge when it is still waiting for a category.
   ///
   /// `pending_review` is the explicit flag the parsers set when they were not
@@ -211,6 +250,6 @@ class NewTransactionWatcher {
       return '${text}tr';
     }
     if (dong >= 1000) return '${(dong / 1000).round()}k';
-    return '${dong}đ';
+    return '$dong' 'đ';
   }
 }

@@ -281,11 +281,17 @@ class TransactionStore extends ChangeNotifier {
       accountId: accountId,
     );
     await refresh();
+    await _notifyPersisted(tx);
     return tx;
   }
 
+  /// Called with the id of a row written outside the sync path (manual entry or
+  /// the AI chat), so the notification watermark can be advanced past it.
+  Future<void> Function(int id)? onRowPersisted;
+
   Future<void> setCategory(Transaction tx, Category? category) async {
     await _repo.updateCategory(tx, category);
+    await _notifyPersisted(tx);
     await refresh();
   }
 
@@ -293,6 +299,7 @@ class TransactionStore extends ChangeNotifier {
   /// Used when a user moves a transaction into one of their own categories.
   Future<void> setCategoryId(Transaction tx, String? categoryId) async {
     await _repo.updateCategoryId(tx, categoryId);
+    await _notifyPersisted(tx);
     await refresh();
   }
 
@@ -326,4 +333,15 @@ class TransactionStore extends ChangeNotifier {
 
   /// Called after a Shortcut deep link or a SePay sync so the UI catches up.
   Future<void> afterExternalIngest() => refresh();
+
+  /// Best-effort hand-off to the notification watcher. A failure here must never
+  /// break a write the user already made, so it is swallowed.
+  Future<void> _notifyPersisted(Transaction tx) async {
+    final int id = tx.id;
+    try {
+      await onRowPersisted?.call(id);
+    } on Object catch (e) {
+      debugPrint('onRowPersisted hook failed: $e');
+    }
+  }
 }

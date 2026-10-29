@@ -398,7 +398,7 @@ class _BudgetSummaryCard extends StatelessWidget {
 
     final double progress = budget <= 0
         ? 0.0
-        : (planned / budget).clamp(0.0, 1.0);
+        : (store.totalCommitted / budget).clamp(0.0, 1.0);
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -600,7 +600,7 @@ class _BudgetSummaryCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Số tiền bạn dự định chi tiêu cho các món đồ. Mỗi khi bạn thêm món muốn mua kèm giá, hệ thống sẽ tự động trừ bớt để hiển thị số tiền còn lại.',
+                  'Số tiền bạn dự định chi tiêu cho các món đồ. Mỗi khi bạn thêm món muốn mua kèm giá, hệ thống sẽ tự động trừ bớt để hiển thị số tiền còn lại. Khi bạn tích "đã mua", khoản tiền đó vẫn bị trừ khỏi ngân sách (không được hoàn lại).',
                   style: TextStyle(
                       fontSize: 12, color: AppColors.inkDim, height: 1.4),
                 ),

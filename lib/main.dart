@@ -90,6 +90,12 @@ Future<void> main() async {
   final NewTransactionWatcher watcher = NewTransactionWatcher(dao: dao);
   unawaited(watcher.seedIfNeeded());
 
+  // Manual and AI-written rows bypass the periodic sync, so the store is wired
+  // to the watcher: it advances the watermark the moment such a row lands. The
+  // row is still picked up by the watcher's re-nudge pass, so a missing category
+  // is never lost — it just is not double-announced.
+  store.onRowPersisted = watcher.noteInserted;
+
   final WebhookIngestService webhook = WebhookIngestService(
     secrets: secrets,
     settings: settings,

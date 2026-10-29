@@ -8,6 +8,7 @@ import '../../data/models/transaction.dart';
 import '../../data/services/cyber_ai_service.dart';
 import '../category_ref.dart';
 import '../stores/transaction_store.dart';
+import '../../data/stores/wishlist_store.dart';
 import '../transactions/edit_transaction_sheet.dart';
 
 class CyberAiChatSheet extends StatefulWidget {
@@ -39,6 +40,7 @@ class _CyberAiChatSheetState extends State<CyberAiChatSheet> {
     'ăn sáng 10k',
     'cafe 35k',
     'grab 45k',
+    'đổi ngân sách mua sắm thành 5 triệu',
   ];
 
   @override
@@ -67,6 +69,7 @@ class _CyberAiChatSheetState extends State<CyberAiChatSheet> {
 
     final aiService = context.read<CyberAiService>();
     final txStore = context.read<TransactionStore>();
+    final wishlist = context.read<WishlistStore>();
 
     // The month list alone leaves "hôm nay" empty whenever today falls outside
     // the month currently loaded (or before the first fetch completes), which is
@@ -98,16 +101,30 @@ class _CyberAiChatSheetState extends State<CyberAiChatSheet> {
     _scrollToBottom();
 
     final started = DateTime.now();
-    final extracted = await aiService.sendMessage(
+    final turn = await aiService.sendMessage(
       text,
       currentExpenses: expenses,
       categoryLabels: labels,
+      currentBudget: wishlist.totalBudget,
+      committedBudget: wishlist.totalCommitted,
     );
 
     if (!mounted) return;
+
+    // A budget command mutates the wishlist, not the ledger. Applying it here
+    // is what makes "đổi ngân sách thành 5 triệu" actually work.
+    if (turn.setBudget != null) {
+      await wishlist.setTotalBudget(turn.setBudget!);
+      if (!mounted) return;
+      _scrollToBottom();
+      _showSnack('Đã cập nhật ngân sách mua sắm: '
+          '${Fmt.dong(wishlist.totalBudget)}');
+    }
+
+    final ExtractedExpense? extracted = turn.expense;
     if (extracted != null) {
       // Automatically commit the expense to SQLite!
-      await txStore.addManual(
+      final tx = await txStore.addManual(
         type: TxType.expense,
         amount: extracted.amount,
         occurredAt: extracted.date ?? VnClock.localNow(),
@@ -116,8 +133,26 @@ class _CyberAiChatSheetState extends State<CyberAiChatSheet> {
       );
       debugPrint('A.R.I.A ghi sổ trong '
           '${DateTime.now().difference(started).inMilliseconds}ms');
+      if (!mounted) return;
       _scrollToBottom();
+      _showSnack('Đã ghi vào sổ: ${extracted.description} · '
+          '${Fmt.dong(extracted.amount)} → ${extracted.categoryName} '
+          '(mã #${tx.id})');
     }
+  }
+
+  /// Small confirmation toast so an action taken by A.R.I.A is visible even
+  /// when the chat bubble has already scrolled out of view.
+  void _showSnack(String message) {
+    if (!mounted) return;
+    final ScaffoldMessengerState? messenger = ScaffoldMessenger.maybeOf(context);
+    messenger?.showSnackBar(
+      SnackBar(
+        content: Text(message),
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   /// Opens the category picker for a row the AI just filed, so a wrong guess is

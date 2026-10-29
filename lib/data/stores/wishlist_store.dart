@@ -23,6 +23,9 @@ class WishlistStore extends ChangeNotifier {
   List<WishlistItem> get bought =>
       _items.where((WishlistItem i) => i.isBought).toList();
 
+  /// Tổng tiền đã cam kết chi (dự kiến mua + đã mua).
+  int get totalCommitted => totalPlanned + totalBought;
+
   int get totalBudget => _totalBudget;
 
   /// Tổng số tiền các món đồ muốn mua (dự kiến mua, chưa mua).
@@ -33,8 +36,9 @@ class WishlistStore extends ChangeNotifier {
   int get totalBought =>
       bought.fold<int>(0, (int s, WishlistItem i) => s + i.effectivePrice);
 
-  /// Tổng ngân sách còn lại = Tổng ngân sách - Tổng giá dự kiến các món đồ muốn mua.
-  int get remainingBudget => _totalBudget - totalPlanned;
+  /// Tổng ngân sách còn lại = Tổng ngân sách - (tiền dự kiến mua + tiền đã mua).
+  /// Tiền của món đã mua vẫn bị trừ, không được hoàn lại vào ngân sách.
+  int get remainingBudget => _totalBudget - totalPlanned - totalBought;
 
   Future<void> load() async {
     _isLoading = true;

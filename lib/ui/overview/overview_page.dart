@@ -59,6 +59,13 @@ class _OverviewPageState extends State<OverviewPage> {
         context.read<SettingsRepository>();
     if (!settings.sepayEnabled || _syncing) return;
 
+    // Resolved before any await so no BuildContext is read across an async
+    // gap further down.
+    final NewTransactionWatcher watcher =
+        Provider.of<NewTransactionWatcher>(context, listen: false);
+    final TransactionStore txStore =
+        Provider.of<TransactionStore>(context, listen: false);
+
     setState(() => _syncing = true);
     final SyncService sync = context.read<SyncService>();
     final SyncReport report = await sync.syncSepay(
@@ -67,12 +74,11 @@ class _OverviewPageState extends State<OverviewPage> {
     if (report.added > 0) {
       await settings.markSynced(DateTime.now());
       if (mounted) {
-        await context.read<TransactionStore>().afterExternalIngest();
+        await txStore.afterExternalIngest();
       }
       // Balance moved → let the watcher decide what is genuinely new and still
       // unclassified, then nudge Hoàng to categorise it.
       if (settings.balanceAlertsEnabled) {
-        final NewTransactionWatcher watcher = context.read<NewTransactionWatcher>();
         unawaited(watcher.checkAndNotify());
       }
     }

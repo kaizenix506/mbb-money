@@ -31,6 +31,20 @@ class ChatMessage {
   final String? modelName;
 }
 
+/// The outcome of one turn of conversation with A.R.I.A.
+///
+/// `reply` is always the natural-language answer; `expense` is set when a row
+/// was understood and should be filed; `setBudget` is set when Hoàng asked to
+/// change the shopping budget. Returning a record (rather than a bare
+/// [ExtractedExpense]?) is what lets the AI *act on the app* instead of only
+/// recording expenses.
+typedef AiTurn = ({
+  String reply,
+  ExtractedExpense? expense,
+  int? setBudget,
+  String modelUsed,
+});
+
 class ExtractedExpense {
   const ExtractedExpense({
     required this.amount,
@@ -90,16 +104,31 @@ class CyberAiService with ChangeNotifier {
 
   // ------------------------------------------------------------ public API
 
-  Future<ExtractedExpense?> sendMessage(
+  Future<AiTurn> sendMessage(
     String text, {
     required List<Transaction> currentExpenses,
 
     /// The user's own categories as id → label. Passed so the model is told
     /// about them and can file a row into one instead of guessing "Khác".
     Map<String, String> categoryLabels = const <String, String>{},
+
+    /// Current shopping budget, handed to the model so it can answer questions
+    /// about it and compute a new value when Hoàng asks to change it.
+    int currentBudget = 0,
+
+    /// Total already committed to the wishlist (planned + bought), so the model
+    /// can reason about what is left instead of guessing.
+    int committedBudget = 0,
   }) async {
     final String trimmed = text.trim();
-    if (trimmed.isEmpty) return null;
+    if (trimmed.isEmpty) {
+      return (
+        reply: '',
+        expense: null,
+        setBudget: null,
+        modelUsed: 'A.R.I.A Local Engine',
+      );
+    }
 
     _messages.add(
       ChatMessage(text: trimmed, isUser: true, timestamp: VnClock.now()),
@@ -109,6 +138,39 @@ class CyberAiService with ChangeNotifier {
 
     final Stopwatch sw = Stopwatch()..start();
 
+    // 0) A budget command is unambiguous, so it is answered locally before the
+    //    network is ever touched. This is what makes "đổi ngân sách thành 5tr"
+    //    work instantly, offline, and without a Gemini key.
+    final int? localBudget =
+        SmartParser.parseBudgetCommandWith(currentBudget, trimmed);
+    if (localBudget != null) {
+      // Anything already committed stays committed; only the ceiling moves.
+      final int left = localBudget - committedBudget;
+      final String replyText =
+          '✅ Đã cập nhật tổng ngân sách mua sắm thành ${Fmt.dong(localBudget)}. '
+          'Số còn lại hiện tại: ${Fmt.dong(left)}'
+          '${left < 0 ? ' (đang vượt ngân sách ⚠️)' : ''}';
+      _activeModel = 'A.R.I.A Local Engine (<1ms)';
+      sw.stop();
+      _messages.add(
+        ChatMessage(
+          text: replyText,
+          isUser: false,
+          timestamp: VnClock.now(),
+          latencyMs: sw.elapsedMilliseconds,
+          modelName: 'A.R.I.A Local Engine (<1ms)',
+        ),
+      );
+      _isThinking = false;
+      notifyListeners();
+      return (
+        reply: replyText,
+        expense: null,
+        setBudget: localBudget,
+        modelUsed: 'A.R.I.A Local Engine (<1ms)',
+      );
+    }
+
     // 1) Ask Gemini first if key available so Hoàng gets real AI intelligence!
     String? geminiKey;
     try {
@@ -116,6 +178,7 @@ class CyberAiService with ChangeNotifier {
     } catch (_) {}
 
     ExtractedExpense? extracted;
+    int? setBudget;
     String reply = '';
     String modelUsed = 'A.R.I.A Local Engine';
 
@@ -126,9 +189,12 @@ class CyberAiService with ChangeNotifier {
           trimmed,
           currentExpenses,
           categoryLabels: categoryLabels,
+          currentBudget: currentBudget,
+          committedBudget: committedBudget,
         );
         reply = result.reply;
         extracted = result.expense;
+        setBudget = result.setBudget;
         modelUsed = result.modelUsed;
         _activeModel = result.modelUsed;
         if (extracted != null) {
@@ -140,7 +206,7 @@ class CyberAiService with ChangeNotifier {
     }
 
     // 2) If Gemini did not reply (offline or failed), use deterministic local SmartParser!
-    if (reply.isEmpty) {
+    if (reply.isEmpty && setBudget == null) {
       modelUsed = 'A.R.I.A Local Engine (<1ms)';
       extracted = SmartParser.parse(
         trimmed,
@@ -169,7 +235,12 @@ class CyberAiService with ChangeNotifier {
 
     _isThinking = false;
     notifyListeners();
-    return extracted;
+    return (
+      reply: reply,
+      expense: extracted,
+      setBudget: setBudget,
+      modelUsed: modelUsed,
+    );
   }
 
   void clearHistory() {
@@ -197,11 +268,13 @@ class CyberAiService with ChangeNotifier {
         '💡 Cứ nói “uống nước 20k” hay “cafe 35k”, tôi ghi ngay.';
   }
 
-  Future<({String reply, ExtractedExpense? expense, String modelUsed})> _askGemini(
+  Future<AiTurn> _askGemini(
     String apiKey,
     String prompt,
     List<Transaction> expenses, {
     Map<String, String> categoryLabels = const <String, String>{},
+    int currentBudget = 0,
+    int committedBudget = 0,
   }) async {
     final DateTime today = VnClock.localNow();
     final int todayStart = DateTime(today.year, today.month, today.day)
@@ -294,13 +367,19 @@ ${last7Ctx.isEmpty ? '(chưa có dữ liệu)' : last7Ctx}
 
 Chi theo danh mục (nhiều nhất trước):
 $catCtx
-=== HẾT DỮ LIỆU ===
+
+=== NGÂN SÁCH MUA SẮM (wishlist) ===
+Tổng ngân sách Hoàng đã điền: ${Fmt.dong(currentBudget)}
+Đã cam kết chi (dự kiến mua + đã mua): ${Fmt.dong(committedBudget)}
+Còn lại: ${Fmt.dong(currentBudget - committedBudget)}
+=== HẾT NGÂN SÁCH ===
 
 BẠN BẮT BUỘC PHẢI LUÔN TRẢ VỀ DUY NHẤT 1 JSON OBJECT THEO ĐÚNG CẤU TRÚC:
 {
-  "action": "add_expense" hoặc "chat_response",
+  "action": "add_expense" hoặc "chat_response" hoặc "set_budget",
   "reply": "BẮT BUỘC: Câu trả lời trò chuyện tự nhiên bằng tiếng Việt gửi cho Hoàng",
   "amount": số tiền nguyên nếu là chi tiêu (hoặc null nếu là trò chuyện),
+  "budget": số tiền nguyên nếu là ĐỔI TỔNG NGÂN SÁCH MUA SẮM (hoặc null),
   "category": "id danh mục từ danh sách trên (hoặc null)",
   "category_name": "tên danh mục tiếng Việt (hoặc null)",
   "description": "mô tả ngắn khoản chi (hoặc null)",
@@ -321,11 +400,21 @@ QUY TẮC:
    - Chỉ được nói "hôm nay chưa có khoản chi nào" khi phần HÔM NAY ghi đúng 0 đồng VÀ 0 giao dịch.
    - TUYỆT ĐỐI không bịa số. Không có trong dữ liệu thì nói chưa có dữ liệu.
 
-3. Nếu Hoàng chào hỏi hoặc trò chuyện phiếm:
+3. Nếu Hoàng yêu cầu ĐỔI / ĐẶT / CẬP NHẬT TỔNG NGÂN SÁCH MUA SẮM (ví dụ: "đổi ngân sách thành 5 triệu", "đặt ngân sách 5tr", "ngân sách mua sắm giờ là 8 triệu", "tăng ngân sách lên 2 triệu nữa"):
+   - "action": "set_budget"
+   - "budget": SỐ TIỀN TUYỆT ĐỐI của ngân sách mới, KHÔNG phải số chênh lệch.
+     * Nếu Hoàng nói "đổi/thành/là X" thì budget = X.
+     * Nếu Hoàng nói "tăng thêm X" thì budget = (tổng ngân sách hiện tại) + X.
+     * Nếu Hoàng nói "giảm bớt X" thì budget = (tổng ngân sách hiện tại) - X.
+   - "amount" = null, "category" = null.
+   - "reply": xác nhận ngắn gọn, nhắc lại số ngân sách mới và số còn lại.
+   - TUYỆT ĐỐI không trả về "chat_response" cho các câu thuộc nhóm này.
+
+4. Nếu Hoàng chào hỏi hoặc trò chuyện phiếm:
    - "action": "chat_response", các trường tiền/danh mục = null
    - "reply": trả lời thân thiện, xưng A.R.I.A, gọi Hoàng (tối đa 2-3 câu).
 
-4. TUYỆT ĐỐI không để trường "reply" bị rỗng hoặc null! Không dùng markdown block.
+5. TUYỆT ĐỐI không để trường "reply" bị rỗng hoặc null! Không dùng markdown block.
 ''';
 
     final Map<String, Object?> payload = <String, Object?>{
@@ -380,12 +469,18 @@ QUY TẮC:
         final String cleanText = raw.trim();
         // If the model returned plain conversational text instead of JSON
         if (cleanText.isNotEmpty && !cleanText.startsWith('{')) {
-          return (reply: cleanText, expense: null, modelUsed: successfulModel);
+          return (
+            reply: cleanText,
+            expense: null,
+            setBudget: null,
+            modelUsed: successfulModel,
+          );
         }
         return (
           reply:
               'Chào Hoàng! A.R.I.A đã sẵn sàng hỗ trợ ghi chép và quản lý chi tiêu rồi đây. ✨',
           expense: null,
+          setBudget: null,
           modelUsed: successfulModel,
         );
       }
@@ -403,6 +498,25 @@ QUY TẮC:
       final num? amount = parsed['amount'] is num
           ? parsed['amount'] as num
           : num.tryParse('${parsed['amount'] ?? ''}');
+      final num? budgetRaw = parsed['budget'] is num
+          ? parsed['budget'] as num
+          : num.tryParse('${parsed['budget'] ?? ''}');
+
+      if (action == 'set_budget' && budgetRaw != null && budgetRaw > 0) {
+        final int newBudget = budgetRaw.toInt().clamp(0, 1000000000000);
+        final int left = newBudget - committedBudget;
+        if (reply.isEmpty || reply == 'null') {
+          reply = '✅ Đã cập nhật tổng ngân sách mua sắm thành '
+              '${Fmt.dong(newBudget)}. Số còn lại hiện tại: ${Fmt.dong(left)}'
+              '${left < 0 ? ' (đang vượt ngân sách ⚠️)' : ''}';
+        }
+        return (
+          reply: reply,
+          expense: null,
+          setBudget: newBudget,
+          modelUsed: successfulModel,
+        );
+      }
 
       if (action == 'add_expense' && amount != null && amount > 0) {
         final String? rawDate = parsed['date']?.toString().trim();
@@ -445,6 +559,7 @@ QUY TẮC:
             date: when,
             confidence: 0.95,
           ),
+          setBudget: null,
           modelUsed: successfulModel,
         );
       }
@@ -464,6 +579,7 @@ QUY TẮC:
       return (
         reply: reply,
         expense: null,
+        setBudget: null,
         modelUsed: successfulModel,
       );
     } finally {

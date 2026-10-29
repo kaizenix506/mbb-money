@@ -253,7 +253,7 @@ class CategoryStore extends ChangeNotifier {
       id: newId,
       label: label.trim(),
       iconKey: iconKey,
-      colorValue: color.value,
+      colorValue: color.toARGB32(),
       isCustom: true,
     );
     // Insert before the 'other' bucket so it stays last.
@@ -280,7 +280,7 @@ class CategoryStore extends ChangeNotifier {
       id: id,
       label: label.trim(),
       iconKey: iconKey,
-      colorValue: color.value,
+      colorValue: color.toARGB32(),
       isCustom: _categories[idx].isCustom,
     );
     _categories[idx] = updated;

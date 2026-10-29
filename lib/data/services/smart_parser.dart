@@ -436,6 +436,84 @@ abstract final class SmartParser {
     );
   }
 
+  // -------------------------------------------------------- budget command
+
+  /// Words that mean "change the shopping budget", not "record an expense".
+  static final RegExp _budgetCue = RegExp(
+    r'(ngân sách|ngan sach|ngân quỹ|ngan quy|budget)',
+    caseSensitive: false,
+  );
+
+  /// "5 triệu" / "5tr" / "5000000" / "5 000 000" → 5000000.
+  static final RegExp _budgetNumber = RegExp(
+    r'(\d+(?:[.,]\d+)?)\s*(nghìn|ngàn|nghin|ngan|triệu|trieu|tr|k|vnđ|vnd|đ|d)?',
+    caseSensitive: false,
+  );
+
+  /// Detects "đổi ngân sách thành 5 triệu", "đặt ngân sách 5tr",
+  /// "tăng ngân sách thêm 2 triệu", "giảm ngân sách bớt 1tr".
+  ///
+  /// Returns the **absolute** new budget when [currentBudget] is supplied and
+  /// the sentence is relative ("tăng/giảm thêm"); returns the delta otherwise.
+  /// The caller decides, which is why the sign is encoded in [BudgetCommand].
+  static BudgetCommand? parseBudgetCommandText(String input) {
+    final String raw = input.trim();
+    if (raw.length < 3) return null;
+    if (!_budgetCue.hasMatch(raw)) return null;
+
+    final String lower = raw.toLowerCase();
+
+    // "còn lại bao nhiêu" is a QUESTION about the budget, not a new one.
+    if (RegExp(r'(bao nhiêu|bao nhieu|\?|thế nào|the nao|còn lại|con lai)')
+        .hasMatch(lower)) {
+      return null;
+    }
+
+    final int? value = _budgetAmount(lower);
+    if (value == null || value <= 0) return null;
+
+    final bool isIncrease =
+        RegExp(r'(tăng|tang|thêm|them|cộng|them vao)').hasMatch(lower);
+    final bool isDecrease =
+        RegExp(r'(giảm|giam|bớt|bot|trừ|tru)').hasMatch(lower);
+
+    return BudgetCommand(
+      amount: value,
+      isRelative: isIncrease || isDecrease,
+      isIncrease: isIncrease && !isDecrease,
+    );
+  }
+
+  /// Backwards-friendly helper: the absolute new budget, or `null`.
+  ///
+  /// Relative phrasing ("tăng thêm 2 triệu") is resolved against
+  /// [currentBudget]; without it a relative command cannot be resolved and
+  /// `null` is returned so the model gets a chance instead.
+  static int? parseBudgetCommandWith(int? currentBudget, String input) {
+    final BudgetCommand? cmd = parseBudgetCommandText(input);
+    if (cmd == null) return null;
+    if (!cmd.isRelative) return cmd.amount;
+    if (currentBudget == null) return null;
+    final int next =
+        cmd.isIncrease ? currentBudget + cmd.amount : currentBudget - cmd.amount;
+    return next < 0 ? 0 : next;
+  }
+
+  static int? _budgetAmount(String lower) {
+    // Prefer the number that directly follows a unit/amount word.
+    for (final RegExpMatch m in _budgetNumber.allMatches(lower)) {
+      final String numberText = m.group(1)!.replaceAll(',', '.');
+      final double base = double.tryParse(numberText) ?? 0;
+      final String? unit = m.group(2)?.toLowerCase();
+      int mult = 1;
+      if (unit != null) mult = _units[unit] ?? 1000;
+      double value = base * mult;
+      if (unit == null && value > 0 && value < 1000) value *= 1000;
+      if (value >= 1000) return value.round();
+    }
+    return null;
+  }
+
   // --------------------------------------------------------------- amount
 
   static int? _amount(String s) {
@@ -610,4 +688,29 @@ abstract final class SmartParser {
       .toLowerCase()
       .replaceAll(RegExp(r'\s+'), ' ')
       .trim();
+}
+
+/// A parsed budget-change instruction.
+///
+/// Kept separate from [ExtractedExpense] because it is a *state change on the
+/// app*, not a ledger row: the chat sheet applies it to the wishlist store.
+class BudgetCommand {
+  const BudgetCommand({
+    required this.amount,
+    required this.isRelative,
+    required this.isIncrease,
+  });
+
+  /// Absolute target when [isRelative] is false, otherwise the delta.
+  final int amount;
+
+  /// True for "tăng thêm 2 triệu" / "giảm bớt 1tr".
+  final bool isRelative;
+
+  /// Only meaningful when [isRelative] is true.
+  final bool isIncrease;
+
+  @override
+  String toString() => 'BudgetCommand(amount: $amount, relative: $isRelative, '
+      'increase: $isIncrease)';
 }

@@ -45,7 +45,11 @@ class BackgroundSyncService with WidgetsBindingObserver {
   final SyncService _sync;
   final SecretStore _secrets;
   final SettingsRepository _settings;
+  // Retained for callers that construct the worker with an explicit repo/dao
+  // (the sync + webhook paths own the writes today).
+  // ignore: unused_field
   final TransactionRepository _repository;
+  // ignore: unused_field
   final TransactionDao _dao;
   final WebhookIngestService? _webhook;
   final NewTransactionWatcher _watcher;

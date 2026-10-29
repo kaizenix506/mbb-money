@@ -89,11 +89,57 @@ void main() {
 
       final int totalPlanned = planned.fold(0, (s, i) => s + i.expectedPrice);
       final int totalBought = bought.fold(0, (s, i) => s + i.effectivePrice);
-      final int remainingBudget = totalBudget - totalPlanned;
+      final int totalCommitted = totalPlanned + totalBought;
+      final int remainingBudget = totalBudget - totalCommitted;
 
       expect(totalPlanned, 5500000); // 3tr + 2.5tr
       expect(totalBought, 1400000); // 1.4tr
-      expect(remainingBudget, 4500000); // 10tr - 5.5tr = 4.5tr
+      expect(totalCommitted, 6900000); // 5.5tr + 1.4tr
+      expect(remainingBudget, 3100000); // 10tr - 6.9tr = 3.1tr
+    });
+
+    test('Ticking "da mua" must not refund money back into the budget', () {
+      const int totalBudget = 10000000; // 10tr
+
+      final item = WishlistItem(
+        id: 1,
+        title: 'Tai nghe',
+        expectedPrice: 3000000,
+        createdAt: DateTime.now(),
+      );
+
+      int remainingFor(List<WishlistItem> list) {
+        final int planned =
+            list.where((i) => !i.isBought).fold(0, (s, i) => s + i.expectedPrice);
+        final int bought =
+            list.where((i) => i.isBought).fold(0, (s, i) => s + i.effectivePrice);
+        return totalBudget - planned - bought;
+      }
+
+      final int beforeBuy = remainingFor([item]);
+      expect(beforeBuy, 7000000); // 10tr - 3tr
+
+      // Tick "da mua": money stays deducted, must NOT increase.
+      final boughtItem = item.copyWith(isBought: true, actualPrice: 3000000);
+      final int afterBuy = remainingFor([boughtItem]);
+      expect(afterBuy, 7000000);
+      expect(afterBuy, lessThanOrEqualTo(beforeBuy));
+
+      // Actual price higher than expected -> remaining must decrease further.
+      final boughtPricier = item.copyWith(isBought: true, actualPrice: 3500000);
+      expect(remainingFor([boughtPricier]), 6500000);
+      expect(remainingFor([boughtPricier]), lessThan(afterBuy));
+    });
+
+    test('Remaining budget can go negative when over budget', () {
+      final overBudget = WishlistItem(
+        id: 9,
+        title: 'Mon dat',
+        expectedPrice: 12000000,
+        createdAt: DateTime.now(),
+      );
+      final int remaining = 10000000 - overBudget.expectedPrice;
+      expect(remaining, -2000000);
     });
   });
 }

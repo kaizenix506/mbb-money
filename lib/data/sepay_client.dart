@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:io' show HttpClient, HttpClientRequest, HttpClientResponse, HttpException, HttpHeaders, SocketException;
+import 'dart:io' show HttpClient, HttpClientRequest, HttpClientResponse, HttpHeaders, SocketException;
 
 
 /// Lean client for SePay's **user API** (the one that reads your own linked
@@ -169,6 +169,9 @@ class SepayTransaction {
   final String? referenceNumber;
   final String? bankBrandName;
   final String? accountNumber;
+  // Kept verbatim so an unexpected bank field can still be inspected without
+  // re-fetching; not read by the app itself.
+  // ignore: unused_field
   final Map<String, Object?> _raw;
 
   /// Stable de-dupe key. Prefixed so it cannot collide with an SMS reference.
