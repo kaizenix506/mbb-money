@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 /// Local notifications for balance movements.
@@ -22,6 +23,9 @@ class NotificationService {
   NotificationService._();
 
   static final NotificationService instance = NotificationService._();
+
+  /// Global navigator key to navigate to screens when notifications are tapped.
+  static GlobalKey<NavigatorState>? navigatorKey;
 
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
@@ -61,16 +65,29 @@ class NotificationService {
         onDidReceiveBackgroundNotificationResponse: _onTapBackground,
       );
       _ready = true;
+      try {
+        final NotificationAppLaunchDetails? details =
+            await _plugin.getNotificationAppLaunchDetails();
+        if (details?.didNotificationLaunchApp ?? false) {
+          if (details?.notificationResponse?.payload == 'review') {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              navigatorKey?.currentState?.pushNamed('/review');
+            });
+          }
+        }
+      } on Object catch (e) {
+        debugPrint('NotificationService checkLaunchDetails failed: $e');
+      }
     } on Object catch (e) {
       debugPrint('NotificationService init failed: $e');
     }
   }
 
   void _onTap(NotificationResponse response) {
-    // The payload is only ever "review"; the app itself decides where to land
-    // (it opens the review queue when there are pending rows). Keeping the
-    // navigation out of this callback avoids needing a navigator key here.
     debugPrint('notification tapped: ${response.payload}');
+    if (response.payload == 'review') {
+      navigatorKey?.currentState?.pushNamed('/review');
+    }
   }
 
   @pragma('vm:entry-point')

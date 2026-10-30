@@ -124,6 +124,10 @@ class TransactionRepository {
 
   Future<int> pendingReviewCount() => _dao.countPendingReview();
 
+  /// Rows that still need to be reviewed or categorised.
+  Future<List<Transaction>> transactionsNeedingCategory({int limit = 100}) =>
+      _dao.rowsNeedingCategory(limit: limit);
+
   Future<List<String>> recentDescriptions({int limit = 8}) =>
       _dao.recentDescriptions(limit: limit);
 
@@ -142,9 +146,15 @@ class TransactionRepository {
     }
 
     final bool isIncome = type == TxType.income;
-    final Category resolved = Category.byId(categoryId) ??
-        AutoCategorizer.categorize(description, isIncome: isIncome) ??
-        Category.other;
+    final String? cleanCatId =
+        (categoryId != null && categoryId.trim().isNotEmpty)
+            ? categoryId.trim()
+            : null;
+
+    final String? resolvedId = cleanCatId ??
+        AutoCategorizer.categorize(description, isIncome: isIncome)?.id;
+
+    final bool needsReview = resolvedId == null || resolvedId.isEmpty;
 
     final Transaction draft = Transaction(
       id: Transaction.draftId,
@@ -152,9 +162,10 @@ class TransactionRepository {
       amount: amount,
       occurredAt: occurredAt,
       description: description.trim(),
-      categoryId: resolved.id,
+      categoryId: resolvedId,
       source: TxSource.manual,
       accountId: accountId ?? Account.cashId,
+      isPendingReview: needsReview,
     );
 
     final int id = await _dao.insert(draft);

@@ -210,18 +210,31 @@ class _MonthInsights extends StatelessWidget {
     // is exactly the donut Hoàng complained about.
     final List<({String? id, int total})> cats = store.expenseByCategoryId;
     final CategoryResolver resolver = context.categories;
+
+    final Map<String, ({CategoryRef category, int total})> merged =
+        <String, ({CategoryRef category, int total})>{};
+    for (final ({String? id, int total}) c in cats) {
+      if (c.total <= 0) continue;
+      final CategoryRef ref = resolver.findById(c.id);
+      final ({CategoryRef category, int total})? existing = merged[ref.id];
+      if (existing != null) {
+        merged[ref.id] = (category: ref, total: existing.total + c.total);
+      } else {
+        merged[ref.id] = (category: ref, total: c.total);
+      }
+    }
+
     final List<({CategoryRef category, int total})> resolved =
-        <({CategoryRef category, int total})>[
-      for (final ({String? id, int total}) c in cats)
-        (category: resolver.findById(c.id), total: c.total),
-    ];
+        merged.values.toList()
+          ..sort((({CategoryRef category, int total}) a,
+                  ({CategoryRef category, int total}) b) =>
+              b.total.compareTo(a.total));
+
     final List<({DateTime month, int total})> trailing = store.trailing;
     final int current = store.totals.expense;
     final int previous =
         trailing.length >= 2 ? trailing[trailing.length - 2].total : 0;
 
-    // Anything past the top 5 is folded into one slice so the ring always sums
-    // to the month total instead of silently dropping the tail.
     const int topN = 5;
     final List<({CategoryRef category, int total})> head =
         resolved.take(topN).toList(growable: false);
@@ -240,11 +253,13 @@ class _MonthInsights extends StatelessWidget {
       Color(0xFFFF3366),
     ];
     final List<DonutSlice> slices = <DonutSlice>[
-      for (final ({CategoryRef category, int total}) c in head)
+      for (int i = 0; i < head.length; i++)
         DonutSlice(
-          label: c.category.label,
-          value: c.total,
-          color: donutPalette[head.indexOf(c) % donutPalette.length],
+          label: head[i].category.label,
+          value: head[i].total,
+          color: (head[i].category.tint != AppColors.inkFaint && head[i].category.id != 'other')
+              ? head[i].category.tint
+              : donutPalette[i % donutPalette.length],
         ),
       if (tailTotal > 0)
         DonutSlice(
@@ -280,7 +295,7 @@ class _MonthInsights extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 10),
-                      for (final ({CategoryRef category, int total}) c in resolved.take(4))
+                      for (final DonutSlice s in slices)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 7),
                           child: Row(
@@ -290,11 +305,10 @@ class _MonthInsights extends StatelessWidget {
                                 height: 7,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: donutPalette[head.indexOf(c) % donutPalette.length],
+                                  color: s.color,
                                   boxShadow: <BoxShadow>[
                                     BoxShadow(
-                                      color: donutPalette[head.indexOf(c) % donutPalette.length]
-                                          .withValues(alpha: 0.6),
+                                      color: s.color.withValues(alpha: 0.6),
                                       blurRadius: 6,
                                     ),
                                   ],
@@ -303,7 +317,7 @@ class _MonthInsights extends StatelessWidget {
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  c.category.label,
+                                  s.label,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(
@@ -315,7 +329,7 @@ class _MonthInsights extends StatelessWidget {
                               Text(
                                 current == 0
                                     ? '0%'
-                                    : '${((c.total / current) * 100).round()}%',
+                                    : '${((s.value / current) * 100).round()}%',
                                 style: const TextStyle(
                                   fontFamily: 'Courier New',
                                   fontSize: 11.5,

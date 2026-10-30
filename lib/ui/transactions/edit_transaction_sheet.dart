@@ -1,3 +1,5 @@
+import '../../data/services/notification_service.dart';
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -238,13 +240,19 @@ class _EditTransactionSheetState extends State<EditTransactionSheet> {
                     onPressed: () async {
                       final newAmt = int.tryParse(_amountCtrl.text.trim()) ?? widget.transaction.amount;
                       final newDesc = _descCtrl.text.trim();
+                      final bool wasClassified = _selectedCategoryId != null &&
+                          _selectedCategoryId!.trim().isNotEmpty;
                       final updated = widget.transaction.copyWith(
                         amount: newAmt,
                         description: newDesc.isEmpty ? widget.transaction.description : newDesc,
                         categoryId: _selectedCategoryId,
                         occurredAt: _date,
+                        isPendingReview: wasClassified ? false : widget.transaction.isPendingReview,
                       );
                       await txStore.updateTransaction(updated);
+                      if (wasClassified && txStore.pendingReviewCount <= 0) {
+                        unawaited(NotificationService.instance.clearReviewNotifications());
+                      }
                       if (context.mounted) Navigator.of(context).pop();
                     },
                     style: FilledButton.styleFrom(

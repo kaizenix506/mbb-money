@@ -307,6 +307,7 @@ class TransactionStore extends ChangeNotifier {
   /// occurredAt, categoryId) and refreshes state.
   Future<void> updateTransaction(Transaction tx) async {
     await _repo.update(tx);
+    await _notifyPersisted(tx);
     await refresh();
   }
 

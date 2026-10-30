@@ -383,7 +383,7 @@ class TransactionDao {
   Future<int> countPendingReview() async {
     final Database db = await _db;
     final List<Map<String, Object?>> rows = await db.rawQuery(
-      'SELECT COUNT(*) AS cnt FROM transactions WHERE pending_review = 1',
+      "SELECT COUNT(*) AS cnt FROM transactions WHERE pending_review = 1 OR category_id IS NULL OR category_id = ''",
     );
     return (rows.first['cnt'] as num?)?.toInt() ?? 0;
   }

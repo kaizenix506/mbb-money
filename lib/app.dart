@@ -1,3 +1,4 @@
+import 'data/services/notification_service.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -19,9 +20,14 @@ import 'ui/wishlist/wishlist_page.dart';
 class MbbMoneyApp extends StatelessWidget {
   const MbbMoneyApp({super.key});
 
+  static final GlobalKey<NavigatorState> navigatorKey =
+      GlobalKey<NavigatorState>();
+
   @override
   Widget build(BuildContext context) {
+    NotificationService.navigatorKey = navigatorKey;
     return MaterialApp(
+      navigatorKey: navigatorKey,
       title: 'MBB Money',
       debugShowCheckedModeBanner: false,
       scaffoldMessengerKey: DeepLinkHandler.messengerKey,

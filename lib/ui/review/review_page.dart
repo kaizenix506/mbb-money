@@ -39,12 +39,10 @@ class _ReviewPageState extends State<ReviewPage> {
 
   Future<void> _load() async {
     final TransactionRepository repo = context.read<TransactionRepository>();
-    // Pulling the whole month and filtering client-side is fine at this scale
-    // and keeps the DAO surface small.
-    final List<Transaction> month = await repo.inMonth(DateTime.now());
+    final List<Transaction> items = await repo.transactionsNeedingCategory();
     if (!mounted) return;
     setState(() {
-      _items = month.where((Transaction t) => t.isPendingReview).toList();
+      _items = items;
       _loading = false;
     });
   }

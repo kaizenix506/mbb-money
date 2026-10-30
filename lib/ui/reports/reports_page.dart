@@ -32,10 +32,29 @@ class ReportsPage extends StatelessWidget {
         ? null
         : (current - prevMonthTotal) / prevMonthTotal;
 
-    final int maxCategory = cats.isEmpty
+    final CategoryResolver resolver = context.categories;
+    final Map<String, ({CategoryRef category, int total})> groupedCats =
+        <String, ({CategoryRef category, int total})>{};
+    for (final ({String? id, int total}) c in cats) {
+      if (c.total <= 0) continue;
+      final CategoryRef ref = resolver.findById(c.id);
+      final ({CategoryRef category, int total})? existing = groupedCats[ref.id];
+      if (existing != null) {
+        groupedCats[ref.id] = (category: ref, total: existing.total + c.total);
+      } else {
+        groupedCats[ref.id] = (category: ref, total: c.total);
+      }
+    }
+    final List<({CategoryRef category, int total})> mergedCats =
+        groupedCats.values.toList()
+          ..sort((({CategoryRef category, int total}) a,
+                  ({CategoryRef category, int total}) b) =>
+              b.total.compareTo(a.total));
+
+    final int maxCategory = mergedCats.isEmpty
         ? 0
-        : cats
-            .map((({String? id, int total}) c) => c.total)
+        : mergedCats
+            .map((({CategoryRef category, int total}) c) => c.total)
             .reduce((int a, int b) => a > b ? a : b);
 
     return SafeArea(
@@ -54,8 +73,8 @@ class ReportsPage extends StatelessWidget {
           const SizedBox(height: 24),
           _MonthBars(data: trailing),
           const SizedBox(height: 6),
-          _SectionLabel('Chi theo danh mục', right: cats.length.toString()),
-          if (cats.isEmpty)
+          _SectionLabel('Chi theo danh mục', right: mergedCats.length.toString()),
+          if (mergedCats.isEmpty)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 26),
               child: Text(
@@ -64,9 +83,9 @@ class ReportsPage extends StatelessWidget {
               ),
             )
           else
-            for (final ({String? id, int total}) c in cats)
+            for (final ({CategoryRef category, int total}) c in mergedCats)
               _CategoryBar(
-                item: (category: context.categories.findById(c.id), total: c.total),
+                item: c,
                 max: maxCategory,
               ),
           const SizedBox(height: 18),

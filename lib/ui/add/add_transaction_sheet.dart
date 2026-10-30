@@ -8,14 +8,19 @@ import '../../core/vn_clock.dart';
 import '../../data/auto_categorizer.dart';
 import '../../data/models/category.dart';
 import '../../data/models/transaction.dart';
+import '../../data/stores/category_store.dart';
+import '../categories/manage_categories_page.dart';
+import '../category_ref.dart';
 import '../stores/transaction_store.dart';
+import '../widgets/category_chip_grid.dart';
 import '../widgets/sheet_kit.dart';
 
 /// Quick-add sheet.
 ///
 /// Optimised for one-handed use: the *amount* is the first and only required
 /// field, and typing it is a big numeric pad with a huge submit button. The
-/// category auto-suggests from the description and can be overridden in one tap.
+/// category auto-suggests from the description and can be chosen from the
+/// user's active categories (including custom ones) or overridden in one tap.
 class AddTransactionSheet extends StatefulWidget {
   const AddTransactionSheet({this.initialType = TxType.expense, super.key});
 
@@ -46,7 +51,7 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
 
   late TxType _type = widget.initialType;
   late DateTime _date;
-  Category? _category;
+  String? _categoryId;
   bool _categoryTouched = false;
   bool _saving = false;
 
@@ -74,11 +79,34 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
 
   void _onDescriptionChanged(String value) {
     if (_categoryTouched) return;
+    final String s = value.toLowerCase().trim();
+    if (s.isEmpty) {
+      if (_categoryId != null) setState(() => _categoryId = null);
+      return;
+    }
+
+    // 1. Check custom / store categories first
+    final CategoryStore? catStore =
+        Provider.of<CategoryStore?>(context, listen: false);
+    if (catStore != null) {
+      for (final CategoryItem item in catStore.all) {
+        if (item.id != 'other' && s.contains(item.label.toLowerCase())) {
+          if (_categoryId != item.id) setState(() => _categoryId = item.id);
+          return;
+        }
+      }
+    }
+
+    // 2. Fallback to keyword-based auto categorizer
     final Category? guess = AutoCategorizer.categorize(
       value,
       isIncome: _type == TxType.income,
     );
-    if (guess != _category) setState(() => _category = guess);
+    if (guess != null) {
+      if (_categoryId != guess.id) setState(() => _categoryId = guess.id);
+    } else {
+      if (_categoryId != null) setState(() => _categoryId = null);
+    }
   }
 
   Future<void> _save() async {
@@ -97,7 +125,7 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
             amount: value,
             occurredAt: _date,
             description: _description.text.trim(),
-            categoryId: _category?.id,
+            categoryId: _categoryId,
           );
       if (!mounted) return;
       HapticFeedback.mediumImpact().ignore();
@@ -115,177 +143,176 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
   Widget build(BuildContext context) {
     final bool isIncome = _type == TxType.income;
     final Color accent = isIncome ? AppColors.mint : AppColors.coral;
+    final List<CategoryRef> choices =
+        context.categories.choicesFor(isIncome: isIncome);
 
     return SheetKit.dismissKeyboardOnTap(
       Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: GestureDetector(
-        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-        behavior: HitTestBehavior.opaque,
-        child: Container(
-        decoration: const BoxDecoration(
-          color: AppColors.bgMid,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-        ),
-        child: SingleChildScrollView(
-          padding: EdgeInsets.fromLTRB(
-            20,
-            12,
-            20,
-            20 + MediaQuery.of(context).padding.bottom,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Center(
-                child: Container(
-                  width: 38,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.18),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        child: GestureDetector(
+          onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+          behavior: HitTestBehavior.opaque,
+          child: Container(
+            decoration: const BoxDecoration(
+              color: AppColors.bgMid,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+            ),
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(
+                20,
+                12,
+                20,
+                20 + MediaQuery.of(context).padding.bottom,
               ),
-              const SizedBox(height: 18),
-              Row(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  Expanded(
-                    child: Text(
-                      'Thêm giao dịch',
-                      style: AppText.sectionTitle.copyWith(
-                        fontSize: 18,
-                        color: AppColors.ink,
+                  Center(
+                    child: Container(
+                      width: 38,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.18),
+                        borderRadius: BorderRadius.circular(2),
                       ),
                     ),
                   ),
-                  _SegmentedType(
-                    value: _type,
-                    onChanged: (TxType t) => setState(() {
-                      _type = t;
-                      if (_categoryTouched) _category = null;
-                      _categoryTouched = false;
-                      _onDescriptionChanged(_description.text);
+                  const SizedBox(height: 18),
+                  Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: Text(
+                          'Thêm giao dịch',
+                          style: AppText.sectionTitle.copyWith(
+                            fontSize: 18,
+                            color: AppColors.ink,
+                          ),
+                        ),
+                      ),
+                      _SegmentedType(
+                        value: _type,
+                        onChanged: (TxType t) => setState(() {
+                          _type = t;
+                          if (_categoryTouched) _categoryId = null;
+                          _categoryTouched = false;
+                          _onDescriptionChanged(_description.text);
+                        }),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 22),
+                  TextField(
+                    controller: _amount,
+                    focusNode: _amountFocus,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: false),
+                    inputFormatters: <TextInputFormatter>[
+                      FilteringTextInputFormatter.digitsOnly,
+                    ],
+                    style: TextStyle(
+                      fontSize: 38,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -1.4,
+                      color: accent,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: '0',
+                      hintStyle: TextStyle(
+                        fontSize: 38,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.inkFaint.withValues(alpha: 0.5),
+                      ),
+                      suffixText: '₫',
+                      suffixStyle: TextStyle(fontSize: 18, color: accent),
+                      filled: false,
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                  if (_amountValue > 0)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        '= ${Fmt.money(_amountValue)}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.inkDim,
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 16),
+                  const Divider(height: 1, color: AppColors.strokeFaint),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _description,
+                    textCapitalization: TextCapitalization.sentences,
+                    onChanged: _onDescriptionChanged,
+                    decoration: const InputDecoration(
+                      hintText: 'Nội dung (vd. Highlands Coffee)',
+                      prefixIcon: Icon(Icons.edit_note_rounded,
+                          size: 20, color: AppColors.inkFaint),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const _FieldLabel('Phân loại danh mục'),
+                  const SizedBox(height: 8),
+                  CategoryChipGrid(
+                    categories: choices,
+                    selectedId: _categoryId,
+                    onSelected: (CategoryRef c) => setState(() {
+                      _categoryId = _categoryId == c.id ? null : c.id;
+                      _categoryTouched = true;
                     }),
+                    onAddCategory: () async {
+                      await Navigator.of(context)
+                          .pushNamed(ManageCategoriesPage.route);
+                      if (mounted) setState(() {});
+                    },
+                  ),
+                  const SizedBox(height: 18),
+                  const _FieldLabel('Thời gian'),
+                  const SizedBox(height: 8),
+                  _DateField(
+                    value: _date,
+                    onPick: _pickDate,
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: FilledButton(
+                      onPressed: _saving ? null : _save,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: accent,
+                        foregroundColor: isIncome
+                            ? const Color(0xFF04231A)
+                            : const Color(0xFF2A0808),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppRadius.pill),
+                        ),
+                        textStyle: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      child: _saving
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Text(_typeLabel),
+                    ),
                   ),
                 ],
               ),
-              const SizedBox(height: 22),
-              TextField(
-                controller: _amount,
-                focusNode: _amountFocus,
-                keyboardType: const TextInputType.numberWithOptions(decimal: false),
-                inputFormatters: <TextInputFormatter>[
-                  FilteringTextInputFormatter.digitsOnly,
-                ],
-                style: TextStyle(
-                  fontSize: 38,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -1.4,
-                  color: accent,
-                ),
-                decoration: InputDecoration(
-                  hintText: '0',
-                  hintStyle: TextStyle(
-                    fontSize: 38,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.inkFaint.withValues(alpha: 0.5),
-                  ),
-                  suffixText: '₫',
-                  suffixStyle: TextStyle(fontSize: 18, color: accent),
-                  filled: false,
-                  border: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  focusedBorder: InputBorder.none,
-                  contentPadding: EdgeInsets.zero,
-                ),
-                onChanged: (_) => setState(() {}),
-              ),
-              if (_amountValue > 0)
-                Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Text(
-                    '= ${Fmt.money(_amountValue)}',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.inkDim,
-                    ),
-                  ),
-                ),
-              const SizedBox(height: 16),
-              const Divider(height: 1, color: AppColors.strokeFaint),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _description,
-                textCapitalization: TextCapitalization.sentences,
-                onChanged: _onDescriptionChanged,
-                decoration: const InputDecoration(
-                  hintText: 'Nội dung (vd. Highlands Coffee)',
-                  prefixIcon: Icon(Icons.edit_note_rounded,
-                      size: 20, color: AppColors.inkFaint),
-                ),
-              ),
-              const SizedBox(height: 16),
-              const _FieldLabel('Phân loại'),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: <Widget>[
-                  for (final Category c in isIncome
-                      ? Category.incomeChoices
-                      : Category.expenseChoices)
-                    _CategoryChip(
-                      category: c,
-                      selected: _category == c,
-                      onTap: () => setState(() {
-                        _category = _category == c ? null : c;
-                        _categoryTouched = true;
-                      }),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              const _FieldLabel('Thời gian'),
-              const SizedBox(height: 8),
-              _DateField(
-                value: _date,
-                onPick: _pickDate,
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: FilledButton(
-                  onPressed: _saving ? null : _save,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: accent,
-                    foregroundColor: isIncome
-                        ? const Color(0xFF04231A)
-                        : const Color(0xFF2A0808),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppRadius.pill),
-                    ),
-                    textStyle: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  child: _saving
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Text(_typeLabel),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
-        ),
-      ),
       ),
     );
   }
@@ -301,8 +328,8 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
     final DateTime? date = await showDatePicker(
       context: context,
       initialDate: _date,
-      firstDate: DateTime(now.year - 3),
-      lastDate: now,
+      firstDate: DateTime(now.year - 5),
+      lastDate: DateTime(now.year + 1),
       helpText: 'Ngày giao dịch',
       cancelText: 'Huỷ',
       confirmText: 'Chọn',
@@ -424,60 +451,6 @@ class _SegChip extends StatelessWidget {
             fontWeight: FontWeight.w700,
             color: selected ? color : AppColors.inkDim,
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CategoryChip extends StatelessWidget {
-  const _CategoryChip({
-    required this.category,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final Category category;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(AppRadius.pill),
-          color: selected
-              ? category.tint.withValues(alpha: 0.18)
-              : Colors.white.withValues(alpha: 0.045),
-          border: Border.all(
-            color: selected
-                ? category.tint.withValues(alpha: 0.55)
-                : AppColors.strokeFaint,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Icon(
-              category.icon,
-              size: 14,
-              color: selected ? category.tint : AppColors.inkDim,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              category.label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: selected ? AppColors.ink : AppColors.inkDim,
-              ),
-            ),
-          ],
         ),
       ),
     );
