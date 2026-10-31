@@ -116,67 +116,67 @@ class CategoryStore extends ChangeNotifier {
       id: 'food',
       label: 'Ăn uống',
       iconKey: 'food',
-      colorValue: 0xFFFF7700,
+      colorValue: 0xFFFF5722, // Đỏ cam
     ),
     const CategoryItem(
       id: 'drink',
       label: 'Đồ uống',
       iconKey: 'drink',
-      colorValue: 0xFF00F0FF,
+      colorValue: 0xFF00B0FF, // Xanh lơ điện
     ),
     const CategoryItem(
       id: 'coffee',
       label: 'Cà phê',
       iconKey: 'coffee',
-      colorValue: 0xFFFFB800,
+      colorValue: 0xFFD97706, // Nâu caramel hổ phách
     ),
     const CategoryItem(
       id: 'transport',
       label: 'Đi lại',
       iconKey: 'transport',
-      colorValue: 0xFF2979FF,
+      colorValue: 0xFF6366F1, // Tím lam Indigo
     ),
     const CategoryItem(
       id: 'shopping',
       label: 'Mua sắm',
       iconKey: 'shopping',
-      colorValue: 0xFFFF007F,
+      colorValue: 0xFFEC4899, // Hồng cánh sen Magenta
     ),
     const CategoryItem(
       id: 'bills',
       label: 'Hóa đơn',
       iconKey: 'bills',
-      colorValue: 0xFFB48CFF,
+      colorValue: 0xFFA855F7, // Tím thạch anh
     ),
     const CategoryItem(
       id: 'health',
       label: 'Sức khỏe',
       iconKey: 'health',
-      colorValue: 0xFFFF1744,
+      colorValue: 0xFFEF4444, // Đỏ Ruby
     ),
     const CategoryItem(
       id: 'entertainment',
       label: 'Giải trí',
       iconKey: 'entertainment',
-      colorValue: 0xFFFFE600,
+      colorValue: 0xFFFACC15, // Vàng chanh Cyber
     ),
     const CategoryItem(
       id: 'education',
       label: 'Giáo dục',
       iconKey: 'education',
-      colorValue: 0xFF00E676,
+      colorValue: 0xFF10B981, // Xanh ngọc lục bảo
     ),
     const CategoryItem(
       id: 'family',
       label: 'Gia đình',
       iconKey: 'family',
-      colorValue: 0xFFFF4081,
+      colorValue: 0xFFFB7185, // Hồng đào san hô
     ),
     const CategoryItem(
       id: 'other',
       label: 'Khác',
       iconKey: 'other',
-      colorValue: 0xFF78909C,
+      colorValue: 0xFF94A3B8, // Xám bạc titan
     ),
   ];
 
@@ -223,7 +223,22 @@ class CategoryStore extends ChangeNotifier {
         final List<dynamic> list = (decoded['items'] as List<dynamic>?) ?? <dynamic>[];
         if (list.isNotEmpty) {
           _categories = list
-              .map((dynamic item) => CategoryItem.fromJson(item as Map<String, dynamic>))
+              .map((dynamic item) {
+                final c = CategoryItem.fromJson(item as Map<String, dynamic>);
+                if (!c.isCustom) {
+                  final defaultMatch = _defaults.where((d) => d.id == c.id).firstOrNull;
+                  if (defaultMatch != null) {
+                    return CategoryItem(
+                      id: c.id,
+                      label: c.label,
+                      iconKey: c.iconKey,
+                      colorValue: defaultMatch.colorValue,
+                      isCustom: false,
+                    );
+                  }
+                }
+                return c;
+              })
               .toList();
         }
 

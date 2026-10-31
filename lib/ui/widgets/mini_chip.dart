@@ -29,13 +29,23 @@ class MiniChip extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(100),
           color: selected
-              ? accent.withValues(alpha: 0.18)
-              : Colors.white.withValues(alpha: 0.05),
+              ? accent.withValues(alpha: 0.28)
+              : accent.withValues(alpha: 0.08),
           border: Border.all(
             color: selected
-                ? accent.withValues(alpha: 0.55)
-                : Colors.white.withValues(alpha: 0.07),
+                ? accent
+                : accent.withValues(alpha: 0.28),
+            width: selected ? 1.4 : 1,
           ),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: accent.withValues(alpha: 0.3),
+                    blurRadius: 8,
+                    spreadRadius: 0.5,
+                  ),
+                ]
+              : null,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -43,8 +53,8 @@ class MiniChip extends StatelessWidget {
             if (icon != null) ...<Widget>[
               Icon(
                 icon,
-                size: 13,
-                color: selected ? accent : const Color(0xFF8B93A5),
+                size: 13.5,
+                color: accent,
               ),
               const SizedBox(width: 5),
             ],
@@ -52,10 +62,10 @@ class MiniChip extends StatelessWidget {
               label,
               style: TextStyle(
                 fontSize: 12,
-                fontWeight: FontWeight.w600,
+                fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
                 color: selected
                     ? const Color(0xFFF2F4F8)
-                    : const Color(0xFF8B93A5),
+                    : const Color(0xFFD0D7E5),
               ),
             ),
           ],

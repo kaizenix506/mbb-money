@@ -1,4 +1,6 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/formatters.dart';
@@ -9,6 +11,7 @@ import '../../data/repositories/sync_service.dart';
 import '../../data/services/notification_service.dart';
 import '../../data/services/webhook_ingest_service.dart';
 import '../stores/transaction_store.dart';
+import '../widgets/cyber_avatar.dart';
 
 /// Cyberpunk Settings Screen:
 /// - 100% focused on SePay API Token (Shortcut feature stripped completely)
@@ -83,6 +86,11 @@ class _SettingsPageState extends State<SettingsPage> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(18, 8, 18, 40),
         children: <Widget>[
+          // Section 0: User Profile & Avatar
+          const _SectionTitle('HỒ SƠ & ẢNH ĐẠI DIỆN'),
+          _CyberProfileCard(settings: settings),
+          const SizedBox(height: 24),
+
           // Section 1: SePay MB Bank Integration
           const _SectionTitle('ĐỒNG BỘ SEPAY (MB BANK)'),
           _CyberSepayCard(
@@ -1111,6 +1119,174 @@ class _CyberDataCard extends StatelessWidget {
             style: OutlinedButton.styleFrom(
               foregroundColor: AppColors.inkDim,
               side: const BorderSide(color: AppColors.stroke),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CyberProfileCard extends StatelessWidget {
+  const _CyberProfileCard({required this.settings});
+
+  final SettingsRepository settings;
+
+  Future<void> _pickAvatar(BuildContext context) async {
+    final XFile? picked = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 600,
+      imageQuality: 88,
+    );
+    if (picked == null) return;
+    final Uint8List bytes = await picked.readAsBytes();
+    await settings.saveAvatarBytes(bytes);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Đã cập nhật ảnh đại diện bền vững!')),
+      );
+    }
+  }
+
+  Future<void> _rename(BuildContext context) async {
+    final TextEditingController ctrl =
+        TextEditingController(text: settings.displayName);
+    final String? res = await showDialog<String>(
+      context: context,
+      builder: (BuildContext ctx) => AlertDialog(
+        backgroundColor: AppColors.bgMid,
+        title: const Text('Đổi tên hiển thị', style: TextStyle(color: AppColors.ink)),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          style: const TextStyle(color: AppColors.ink),
+          decoration: const InputDecoration(hintText: 'Nhập tên của bạn'),
+          onSubmitted: (String v) => Navigator.of(ctx).pop(v),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Huỷ'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(ctrl.text),
+            child: const Text('Lưu'),
+          ),
+        ],
+      ),
+    );
+    ctrl.dispose();
+    if (res != null && res.trim().isNotEmpty) {
+      await settings.setDisplayName(res.trim());
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final String name = settings.displayName;
+    final String? avatarPath = settings.avatarPath;
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppColors.panel,
+        borderRadius: BorderRadius.circular(AppRadius.card),
+        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.35)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.neonCyan.withValues(alpha: 0.08),
+            blurRadius: 18,
+          ),
+        ],
+      ),
+      child: Row(
+        children: <Widget>[
+          CyberAvatar(
+            name: name,
+            imagePath: avatarPath,
+            size: 56,
+            onTap: () => _pickAvatar(context),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  name,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.ink,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  avatarPath != null
+                      ? 'Ảnh cá nhân · Đã sao lưu bộ nhớ vĩnh viễn'
+                      : 'Chữ cái mặc định · Chạm vào ảnh để đổi',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: avatarPath != null
+                        ? AppColors.neonGreen
+                        : AppColors.inkDim,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: <Widget>[
+                    InkWell(
+                      onTap: () => _pickAvatar(context),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.neonCyan.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: AppColors.neonCyan, width: 0.8),
+                        ),
+                        child: const Text(
+                          'ĐỔI ẢNH',
+                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.neonCyan),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    InkWell(
+                      onTap: () => _rename(context),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.07),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: AppColors.strokeFaint),
+                        ),
+                        child: const Text(
+                          'ĐỔI TÊN',
+                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.ink),
+                        ),
+                      ),
+                    ),
+                    if (avatarPath != null) ...<Widget>[
+                      const SizedBox(width: 8),
+                      InkWell(
+                        onTap: () async => settings.setAvatarPath(null),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppColors.neonPink.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: AppColors.neonPink.withValues(alpha: 0.6), width: 0.8),
+                          ),
+                          child: const Text(
+                            'XOÁ ẢNH',
+                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.neonPink),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
             ),
           ),
         ],

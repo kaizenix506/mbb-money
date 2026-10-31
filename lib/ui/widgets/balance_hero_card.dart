@@ -205,32 +205,48 @@ class BalanceHeroCard extends StatelessWidget {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Row(
-                            children: [
-                              const Icon(Icons.receipt_rounded, color: AppColors.neonCyan, size: 16),
-                              const SizedBox(width: 6),
-                              Text(
-                                'ĐÃ CHI: $txCount GIAO DỊCH',
+                          Flexible(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.receipt_rounded, color: AppColors.neonCyan, size: 16),
+                                const SizedBox(width: 6),
+                                Flexible(
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(
+                                      'ĐÃ CHI: $txCount GIAO DỊCH',
+                                      style: const TextStyle(
+                                        fontFamily: 'Courier New',
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w800,
+                                        color: AppColors.neonCyan,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerRight,
+                              child: Text(
+                                dailyBudgetLeft != null && dailyBudgetLeft! > 0
+                                    ? 'HẠN MỨC ~${Fmt.compact(dailyBudgetLeft!)}/NGÀY'
+                                    : 'MB BANK ONLINE',
                                 style: const TextStyle(
                                   fontFamily: 'Courier New',
-                                  fontSize: 12.5,
+                                  fontSize: 11,
                                   fontWeight: FontWeight.w800,
-                                  color: AppColors.neonCyan,
+                                  color: AppColors.neonYellow,
                                   letterSpacing: 0.5,
                                 ),
                               ),
-                            ],
-                          ),
-                          Text(
-                            dailyBudgetLeft != null && dailyBudgetLeft! > 0
-                                ? 'HẠN MỨC ~${Fmt.compact(dailyBudgetLeft!)}/NGÀY'
-                                : 'MB BANK ONLINE',
-                            style: const TextStyle(
-                              fontFamily: 'Courier New',
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.neonYellow,
-                              letterSpacing: 0.5,
                             ),
                           ),
                         ],

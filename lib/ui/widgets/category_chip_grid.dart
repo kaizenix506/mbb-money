@@ -86,18 +86,27 @@ class _Chip extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(100),
           color: selected
-              ? tint.withValues(alpha: 0.22)
-              : Colors.white.withValues(alpha: 0.05),
+              ? tint.withValues(alpha: 0.28)
+              : tint.withValues(alpha: 0.08),
           border: Border.all(
             color: selected
-                ? tint.withValues(alpha: 0.65)
-                : Colors.white.withValues(alpha: 0.07),
-            width: selected ? 1.4 : 1,
+                ? tint
+                : tint.withValues(alpha: 0.28),
+            width: selected ? 1.5 : 1,
           ),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: tint.withValues(alpha: 0.35),
+                    blurRadius: 10,
+                    spreadRadius: 0.5,
+                  ),
+                ]
+              : null,
         ),
         child: Row(
           children: <Widget>[
-            Icon(category.icon, size: 14, color: selected ? tint : AppColors.inkDim),
+            Icon(category.icon, size: 15, color: tint),
             const SizedBox(width: 6),
             Expanded(
               child: Text(
@@ -107,7 +116,7 @@ class _Chip extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 11.5,
                   fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-                  color: selected ? AppColors.ink : AppColors.inkDim,
+                  color: selected ? Colors.white : AppColors.ink,
                 ),
               ),
             ),

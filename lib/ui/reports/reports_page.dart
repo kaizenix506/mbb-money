@@ -737,7 +737,20 @@ class _CategoryBar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 9),
       child: Row(
         children: <Widget>[
-          Container(width: 9, height: 9, color: item.category.tint),
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(
+              color: item.category.tint,
+              borderRadius: BorderRadius.circular(3),
+              boxShadow: [
+                BoxShadow(
+                  color: item.category.tint.withValues(alpha: 0.55),
+                  blurRadius: 5,
+                ),
+              ],
+            ),
+          ),
           const SizedBox(width: 9),
           SizedBox(
             width: 74,
@@ -762,14 +775,18 @@ class _CategoryBar extends StatelessWidget {
           const SizedBox(width: 10),
           SizedBox(
             width: 84,
-            child: Text(
-              Fmt.amount(item.total),
-              textAlign: TextAlign.right,
-              style: const TextStyle(
-                fontSize: 11.5,
-                fontWeight: FontWeight.w700,
-                color: AppColors.ink,
-                fontFeatures: <FontFeature>[FontFeature.tabularFigures()],
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Text(
+                Fmt.amount(item.total),
+                textAlign: TextAlign.right,
+                style: const TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.ink,
+                  fontFeatures: <FontFeature>[FontFeature.tabularFigures()],
+                ),
               ),
             ),
           ),

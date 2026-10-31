@@ -62,8 +62,14 @@ class _EditTransactionSheetState extends State<EditTransactionSheet> {
   @override
   Widget build(BuildContext context) {
     final TransactionStore txStore = context.watch<TransactionStore>();
+    final bool isIncome = widget.transaction.isIncome;
     final List<CategoryRef> choices =
-        context.categories.choicesFor(isIncome: widget.transaction.isIncome);
+        context.categories.choicesFor(isIncome: isIncome);
+    final CategoryRef? selectedCat = _selectedCategoryId != null
+        ? choices.where((CategoryRef c) => c.id == _selectedCategoryId).firstOrNull
+        : null;
+    final Color effectiveAccent = selectedCat?.tint ??
+        (isIncome ? AppColors.neonGreen : AppColors.neonPink);
     final double viewInsets = MediaQuery.of(context).viewInsets.bottom;
 
     return Container(
@@ -151,11 +157,11 @@ class _EditTransactionSheetState extends State<EditTransactionSheet> {
                 TextField(
                   controller: _amountCtrl,
                   keyboardType: TextInputType.number,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: 'Courier New',
                     fontSize: 22,
                     fontWeight: FontWeight.w900,
-                    color: AppColors.neonPink,
+                    color: effectiveAccent,
                   ),
                   decoration: InputDecoration(
                     filled: true,
@@ -256,12 +262,12 @@ class _EditTransactionSheetState extends State<EditTransactionSheet> {
                       if (context.mounted) Navigator.of(context).pop();
                     },
                     style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.neonCyan,
+                      backgroundColor: effectiveAccent,
                       foregroundColor: Colors.black,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       elevation: 8,
-                      shadowColor: AppColors.neonCyan.withValues(alpha: 0.5),
+                      shadowColor: effectiveAccent.withValues(alpha: 0.5),
                     ),
                     child: const Text(
                       'LƯU THAY ĐỔI',

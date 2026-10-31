@@ -417,10 +417,11 @@ class _TransactionActions extends StatelessWidget {
         20,
         20 + MediaQuery.of(context).padding.bottom,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
           Center(
             child: Container(
               width: 38,
@@ -488,7 +489,8 @@ class _TransactionActions extends StatelessWidget {
           ),
         ],
       ),
-    );
+    ),
+  );
   }
 
 }

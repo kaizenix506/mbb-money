@@ -407,30 +407,34 @@ class _CompareRow extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 5),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(3),
-          child: Stack(
-            children: <Widget>[
-              Container(
-                height: 7,
-                color: Colors.white.withValues(alpha: 0.05),
+        LayoutBuilder(
+          builder: (BuildContext context, BoxConstraints constraints) {
+            return ClipRRect(
+              borderRadius: BorderRadius.circular(3),
+              child: Stack(
+                children: <Widget>[
+                  Container(
+                    height: 7,
+                    width: constraints.maxWidth,
+                    color: Colors.white.withValues(alpha: 0.05),
+                  ),
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 700),
+                    curve: Curves.easeOutCubic,
+                    height: 7,
+                    width: constraints.maxWidth * fraction.clamp(0.0, 1.0),
+                    decoration: BoxDecoration(
+                      color: color,
+                      borderRadius: BorderRadius.circular(3),
+                      boxShadow: <BoxShadow>[
+                        BoxShadow(color: color.withValues(alpha: 0.5), blurRadius: 8),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 700),
-                curve: Curves.easeOutCubic,
-                height: 7,
-                width: (MediaQuery.of(context).size.width - 92) *
-                    fraction.clamp(0.0, 1.0),
-                decoration: BoxDecoration(
-                  color: color,
-                  borderRadius: BorderRadius.circular(3),
-                  boxShadow: <BoxShadow>[
-                    BoxShadow(color: color.withValues(alpha: 0.5), blurRadius: 8),
-                  ],
-                ),
-              ),
-            ],
-          ),
+            );
+          },
         ),
       ],
     );

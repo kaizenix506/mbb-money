@@ -428,44 +428,51 @@ class _BudgetSummaryCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: <Widget>[
-              Row(
-                children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: isOverBudget
-                          ? AppColors.neonPink
-                          : AppColors.neonGreen,
-                      boxShadow: [
-                        BoxShadow(
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: isOverBudget
+                            ? AppColors.neonPink
+                            : AppColors.neonGreen,
+                        boxShadow: [
+                          BoxShadow(
+                            color: isOverBudget
+                                ? AppColors.neonPink
+                                : AppColors.neonGreen,
+                            blurRadius: 8,
+                            spreadRadius: 1,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        isOverBudget
+                            ? 'CẢNH BÁO: VƯỢT NGÂN SÁCH'
+                            : 'TỔNG NGÂN SÁCH CÒN LẠI',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.3,
                           color: isOverBudget
                               ? AppColors.neonPink
                               : AppColors.neonGreen,
-                          blurRadius: 8,
-                          spreadRadius: 1,
                         ),
-                      ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    isOverBudget
-                        ? 'CẢNH BÁO: VƯỢT NGÂN SÁCH'
-                        : 'TỔNG NGÂN SÁCH CÒN LẠI',
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.3,
-                      color: isOverBudget
-                          ? AppColors.neonPink
-                          : AppColors.neonGreen,
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               InkWell(
                 onTap: () => _editBudgetDialog(context, store),
                 borderRadius: BorderRadius.circular(8),
@@ -535,24 +542,29 @@ class _BudgetSummaryCard extends StatelessWidget {
               border: Border.all(color: AppColors.strokeFaint),
             ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: <Widget>[
-                _SubStat(
-                  label: 'TỔNG NGÂN SÁCH',
-                  value: Fmt.dong(budget),
-                  color: AppColors.neonCyan,
+                Expanded(
+                  child: _SubStat(
+                    label: 'TỔNG NGÂN SÁCH',
+                    value: Fmt.dong(budget),
+                    color: AppColors.neonCyan,
+                  ),
                 ),
-                Container(width: 1, height: 26, color: AppColors.strokeFaint),
-                _SubStat(
-                  label: 'DỰ KIẾN MUA',
-                  value: Fmt.dong(planned),
-                  color: AppColors.neonYellow,
+                Container(width: 1, height: 26, margin: const EdgeInsets.symmetric(horizontal: 4), color: AppColors.strokeFaint),
+                Expanded(
+                  child: _SubStat(
+                    label: 'DỰ KIẾN MUA',
+                    value: Fmt.dong(planned),
+                    color: AppColors.neonYellow,
+                  ),
                 ),
-                Container(width: 1, height: 26, color: AppColors.strokeFaint),
-                _SubStat(
-                  label: 'ĐÃ MUA',
-                  value: Fmt.dong(bought),
-                  color: AppColors.neonGreen,
+                Container(width: 1, height: 26, margin: const EdgeInsets.symmetric(horizontal: 4), color: AppColors.strokeFaint),
+                Expanded(
+                  child: _SubStat(
+                    label: 'ĐÃ MUA',
+                    value: Fmt.dong(bought),
+                    color: AppColors.neonGreen,
+                  ),
                 ),
               ],
             ),
@@ -708,23 +720,31 @@ class _SubStat extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 9,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 0.8,
-            color: AppColors.inkFaint,
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.8,
+              color: AppColors.inkFaint,
+            ),
           ),
         ),
         const SizedBox(height: 2),
-        Text(
-          value,
-          style: TextStyle(
-            fontFamily: 'Courier New',
-            fontSize: 12.5,
-            fontWeight: FontWeight.w800,
-            color: color,
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            value,
+            style: TextStyle(
+              fontFamily: 'Courier New',
+              fontSize: 12.5,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
           ),
         ),
       ],

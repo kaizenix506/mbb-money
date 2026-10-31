@@ -1,6 +1,9 @@
 import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/widgets.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Which ingestion paths the user has switched on.
@@ -10,9 +13,12 @@ enum DataSource { shortcut, sepay }
 /// see SecretStore — because SharedPreferences is a plain unencrypted plist on
 /// iOS and would leak the token on a jailbroken device or iCloud backup.
 class SettingsRepository extends ChangeNotifier {
-  SettingsRepository(this._prefs);
+  SettingsRepository(this._prefs) {
+    _initAvatar();
+  }
 
   final SharedPreferences _prefs;
+  String? _cachedAvatarPath;
 
   static const String _kShortcut = 'source.shortcut';
   static const String _kSepay = 'source.sepay';
@@ -77,19 +83,96 @@ class SettingsRepository extends ChangeNotifier {
   // ------------------------------------------------------------- avatar
 
   static const String _kAvatarPath = 'profile.avatar_path';
+  static const String _kAvatarBase64 = 'profile.avatar_b64';
+  static const String _kAvatarFileName = 'profile_avatar_v1.jpg';
   static const String _kDisplayName = 'profile.name';
 
-  /// Absolute file path of the user's chosen avatar, or `null` for the default
+  Future<void> _initAvatar() async {
+    try {
+      final Directory dir = await getApplicationDocumentsDirectory();
+      final File file = File('${dir.path}/$_kAvatarFileName');
+      if (await file.exists()) {
+        _cachedAvatarPath = file.path;
+        notifyListeners();
+        return;
+      }
+      final String? b64 = _prefs.getString(_kAvatarBase64);
+      if (b64 != null && b64.isNotEmpty) {
+        final Uint8List bytes = base64Decode(b64);
+        await file.writeAsBytes(bytes, flush: true);
+        _cachedAvatarPath = file.path;
+        await _prefs.setString(_kAvatarPath, file.path);
+        notifyListeners();
+        return;
+      }
+      final String? oldPath = _prefs.getString(_kAvatarPath);
+      if (oldPath != null && oldPath.isNotEmpty) {
+        final File oldFile = File(oldPath);
+        if (await oldFile.exists()) {
+          final Uint8List bytes = await oldFile.readAsBytes();
+          await saveAvatarBytes(bytes);
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('Avatar init error: $e');
+    }
+  }
+
+  /// Persistent file path of the user's chosen avatar, or `null` for the default
   /// neon monogram.
-  String? get avatarPath => _prefs.getString(_kAvatarPath);
+  String? get avatarPath {
+    if (_cachedAvatarPath != null && File(_cachedAvatarPath!).existsSync()) {
+      return _cachedAvatarPath;
+    }
+    final String? p = _prefs.getString(_kAvatarPath);
+    if (p != null && File(p).existsSync()) {
+      return p;
+    }
+    return null;
+  }
+
+  /// Saves the avatar bytes permanently into the app documents folder and
+  /// maintains a base64 backup in SharedPreferences so it survives app reinstalls.
+  Future<void> saveAvatarBytes(Uint8List bytes) async {
+    try {
+      final String b64 = base64Encode(bytes);
+      await _prefs.setString(_kAvatarBase64, b64);
+
+      try {
+        final Directory dir = await getApplicationDocumentsDirectory();
+        final File file = File('${dir.path}/$_kAvatarFileName');
+        await file.writeAsBytes(bytes, flush: true);
+
+        _cachedAvatarPath = file.path;
+        await _prefs.setString(_kAvatarPath, file.path);
+      } catch (e) {
+        debugPrint('Error writing avatar file: $e');
+      }
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error saving avatar bytes: $e');
+    }
+  }
 
   Future<void> setAvatarPath(String? path) async {
     if (path == null || path.isEmpty) {
+      await _prefs.remove(_kAvatarBase64);
       await _prefs.remove(_kAvatarPath);
-    } else {
-      await _prefs.setString(_kAvatarPath, path);
+      _cachedAvatarPath = null;
+      try {
+        final Directory dir = await getApplicationDocumentsDirectory();
+        final File file = File('${dir.path}/$_kAvatarFileName');
+        if (await file.exists()) await file.delete();
+      } catch (_) {}
+      notifyListeners();
+      return;
     }
-    notifyListeners();
+    final File file = File(path);
+    if (await file.exists()) {
+      final Uint8List bytes = await file.readAsBytes();
+      await saveAvatarBytes(bytes);
+    }
   }
 
   /// Defaults to Hoàng, but the header reads this so the user can rename.

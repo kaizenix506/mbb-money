@@ -243,14 +243,16 @@ class _MonthInsights extends StatelessWidget {
         .fold<int>(0, (int s, ({CategoryRef category, int total}) e) => s + e.total);
 
     const List<Color> donutPalette = <Color>[
-      Color(0xFF00F0FF),
-      Color(0xFFFF0055),
-      Color(0xFFFFE600),
-      Color(0xFF39FF14),
-      Color(0xFF9D00FF),
-      Color(0xFFFF7700),
-      Color(0xFF00E5FF),
-      Color(0xFFFF3366),
+      Color(0xFFFF5722),
+      Color(0xFF00B0FF),
+      Color(0xFFD97706),
+      Color(0xFF6366F1),
+      Color(0xFFEC4899),
+      Color(0xFFA855F7),
+      Color(0xFFEF4444),
+      Color(0xFFFACC15),
+      Color(0xFF10B981),
+      Color(0xFFFB7185),
     ];
     final List<DonutSlice> slices = <DonutSlice>[
       for (int i = 0; i < head.length; i++)

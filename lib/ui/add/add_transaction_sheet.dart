@@ -145,6 +145,10 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
     final Color accent = isIncome ? AppColors.mint : AppColors.coral;
     final List<CategoryRef> choices =
         context.categories.choicesFor(isIncome: isIncome);
+    final CategoryRef? selectedCat = _categoryId != null
+        ? choices.where((CategoryRef c) => c.id == _categoryId).firstOrNull
+        : null;
+    final Color effectiveAccent = selectedCat?.tint ?? accent;
 
     return SheetKit.dismissKeyboardOnTap(
       Padding(
@@ -214,7 +218,7 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
                       fontSize: 38,
                       fontWeight: FontWeight.w800,
                       letterSpacing: -1.4,
-                      color: accent,
+                      color: effectiveAccent,
                     ),
                     decoration: InputDecoration(
                       hintText: '0',
@@ -224,7 +228,7 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
                         color: AppColors.inkFaint.withValues(alpha: 0.5),
                       ),
                       suffixText: '₫',
-                      suffixStyle: TextStyle(fontSize: 18, color: accent),
+                      suffixStyle: TextStyle(fontSize: 18, color: effectiveAccent),
                       filled: false,
                       border: InputBorder.none,
                       enabledBorder: InputBorder.none,
@@ -287,10 +291,8 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
                     child: FilledButton(
                       onPressed: _saving ? null : _save,
                       style: FilledButton.styleFrom(
-                        backgroundColor: accent,
-                        foregroundColor: isIncome
-                            ? const Color(0xFF04231A)
-                            : const Color(0xFF2A0808),
+                        backgroundColor: effectiveAccent,
+                        foregroundColor: Colors.black,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(AppRadius.pill),
                         ),

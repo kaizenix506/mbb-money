@@ -212,12 +212,24 @@ class ManageCategoriesPage extends StatelessWidget {
     String effectiveIconKey(String label) => pickedIconKey ?? guessIconKey(label);
 
     const List<Color> colors = <Color>[
-      AppColors.neonCyan,
-      AppColors.neonPink,
-      AppColors.neonYellow,
-      AppColors.neonGreen,
-      AppColors.neonViolet,
-      AppColors.neonOrange,
+      Color(0xFFFF5722), // Đỏ cam
+      Color(0xFFD97706), // Nâu hổ phách cà phê
+      Color(0xFFF59E0B), // Vàng mật ong
+      Color(0xFFFACC15), // Vàng chanh Cyber
+      Color(0xFF84CC16), // Xanh nõn chuối
+      Color(0xFF10B981), // Xanh lục bảo
+      Color(0xFF00F5D4), // Xanh bạc hà
+      Color(0xFF06B6D4), // Xanh cyan
+      Color(0xFF00B0FF), // Xanh lơ điện
+      Color(0xFF3B82F6), // Xanh lam
+      Color(0xFF6366F1), // Tím lam Indigo
+      Color(0xFFA855F7), // Tím thạch anh
+      Color(0xFFD946EF), // Tím phong lan Fuchsia
+      Color(0xFFEC4899), // Hồng cánh sen
+      Color(0xFFFB7185), // Hồng đào san hô
+      Color(0xFFEF4444), // Đỏ Ruby
+      Color(0xFFF43F5E), // Đỏ hoa hồng
+      Color(0xFF94A3B8), // Xám bạc titan
     ];
 
     // Every key must exist in categoryIconMap or the tile silently falls back

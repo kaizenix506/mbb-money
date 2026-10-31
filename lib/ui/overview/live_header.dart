@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -165,7 +166,8 @@ class LiveHeader extends StatelessWidget {
                     imageQuality: 88,
                   );
                   if (picked == null) return;
-                  await settings.setAvatarPath(picked.path);
+                  final Uint8List bytes = await picked.readAsBytes();
+                  await settings.saveAvatarBytes(bytes);
                 },
               ),
               const SizedBox(height: 10),
@@ -180,7 +182,8 @@ class LiveHeader extends StatelessWidget {
                     imageQuality: 88,
                   );
                   if (picked == null) return;
-                  await settings.setAvatarPath(picked.path);
+                  final Uint8List bytes = await picked.readAsBytes();
+                  await settings.saveAvatarBytes(bytes);
                 },
               ),
               const SizedBox(height: 10),
