@@ -90,6 +90,7 @@ abstract final class Fmt {
 
   /// `Thứ Hai`
   static String weekday(DateTime d) => _weekdays[d.weekday - 1];
+  static String dayOfWeek(DateTime d) => weekday(d);
 
   /// `Thứ Hai, 20 tháng 10 2026`
   static String fullDate(DateTime d) =>
