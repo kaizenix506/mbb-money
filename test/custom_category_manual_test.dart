@@ -175,11 +175,11 @@ void main() {
     test('donut chart slices enforce distinct colors even when categories share same color', () {
       // 5 categories like in Hoàng's screenshot where 4 were cyan
       final List<({CategoryRef category, int total})> items = [
-        (category: CategoryRef(id: 'c1', label: 'shopping', icon: Icons.shopping_bag, tint: const Color(0xFF00E5FF), isCustom: true), total: 340000),
-        (category: CategoryRef(id: 'c2', label: 'Ăn uống', icon: Icons.restaurant, tint: const Color(0xFFFF5722)), total: 200000),
-        (category: CategoryRef(id: 'c3', label: 'AI', icon: Icons.smart_toy, tint: const Color(0xFF00E5FF), isCustom: true), total: 180000),
-        (category: CategoryRef(id: 'c4', label: 'Skin_Care', icon: Icons.spa, tint: const Color(0xFF00E5FF), isCustom: true), total: 170000),
-        (category: CategoryRef(id: 'c5', label: 'Di chuyển', icon: Icons.directions_car, tint: const Color(0xFF00E5FF), isCustom: true), total: 110000),
+        (category: const CategoryRef(id: 'c1', label: 'shopping', icon: Icons.shopping_bag, tint: Color(0xFF00E5FF), isCustom: true), total: 340000),
+        (category: const CategoryRef(id: 'c2', label: 'Ăn uống', icon: Icons.restaurant, tint: Color(0xFFFF5722)), total: 200000),
+        (category: const CategoryRef(id: 'c3', label: 'AI', icon: Icons.smart_toy, tint: Color(0xFF00E5FF), isCustom: true), total: 180000),
+        (category: const CategoryRef(id: 'c4', label: 'Skin_Care', icon: Icons.spa, tint: Color(0xFF00E5FF), isCustom: true), total: 170000),
+        (category: const CategoryRef(id: 'c5', label: 'Di chuyển', icon: Icons.directions_car, tint: Color(0xFF00E5FF), isCustom: true), total: 110000),
       ];
 
       final Set<int> usedSliceColors = <int>{};

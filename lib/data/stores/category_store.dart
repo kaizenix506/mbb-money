@@ -445,7 +445,7 @@ class CategoryStore extends ChangeNotifier {
       id: newId,
       label: label.trim(),
       iconKey: iconKey,
-      colorValue: color.toARGB32(),
+      colorValue: effectiveColor.toARGB32(),
       isCustom: true,
     );
     // Insert before the 'other' bucket so it stays last.
