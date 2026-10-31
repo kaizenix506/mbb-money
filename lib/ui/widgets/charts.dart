@@ -269,18 +269,19 @@ class _DonutPainter extends CustomPainter {
 
     // Guarantee distinct colors for every slice so adjacent slices never blend
     final List<Color> sliceColors = List<Color>.filled(slices.length, Colors.transparent);
-    final Set<int> usedColors = <int>{};
+    final List<Color> usedColors = <Color>[];
     for (int i = 0; i < slices.length; i++) {
       Color c = slices[i].color;
-      if (usedColors.contains(c.toARGB32())) {
+      if (usedColors.any((Color prev) => CategoryStore.areColorsVisuallySimilar(prev, c))) {
         for (final int palVal in CategoryStore.neonPalette) {
-          if (!usedColors.contains(palVal)) {
-            c = Color(palVal);
+          final Color candidate = Color(palVal);
+          if (!usedColors.any((Color prev) => CategoryStore.areColorsVisuallySimilar(prev, candidate))) {
+            c = candidate;
             break;
           }
         }
       }
-      usedColors.add(c.toARGB32());
+      usedColors.add(c);
       sliceColors[i] = c;
     }
 

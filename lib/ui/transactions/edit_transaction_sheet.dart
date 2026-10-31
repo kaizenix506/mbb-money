@@ -12,6 +12,7 @@ import '../category_ref.dart';
 import '../categories/manage_categories_page.dart';
 import '../stores/transaction_store.dart';
 import '../widgets/category_chip_grid.dart';
+import '../widgets/cyber_date_picker.dart';
 
 /// Interactive Sheet to Edit, Re-categorize, or Delete any Transaction
 /// directly requested by Hoang: "chỉnh sửa phân loại các giao dịch, tùy chỉnh xóa hoặc thêm các mục"
@@ -232,7 +233,24 @@ class _EditTransactionSheetState extends State<EditTransactionSheet> {
                             ),
                           ),
                         ),
-                        const Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.inkFaint),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.05),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Text(
+                            'Cuộn dọc',
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.inkFaint,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Icon(Icons.unfold_more_rounded, size: 18, color: AppColors.inkFaint),
                       ],
                     ),
                   ),
@@ -284,54 +302,12 @@ class _EditTransactionSheetState extends State<EditTransactionSheet> {
   }
 
   Future<void> _pickDate() async {
-    final DateTime now = VnClock.localNow();
-    final DateTime? date = await showDatePicker(
+    final DateTime? picked = await showCyberDateTimePicker(
       context: context,
-      initialDate: _date,
-      firstDate: DateTime(now.year - 5),
-      lastDate: DateTime(now.year + 1),
-      helpText: 'Ngày giao dịch',
-      cancelText: 'Huỷ',
-      confirmText: 'Chọn',
-      builder: (BuildContext context, Widget? child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: AppColors.neonCyan,
-              surface: AppColors.bgMid,
-              onSurface: AppColors.ink,
-            ),
-          ),
-          child: child!,
-        );
-      },
+      initialDateTime: _date,
     );
-    if (date == null) return;
-
-    if (!mounted) return;
-    final TimeOfDay? time = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(_date),
-      helpText: 'Giờ giao dịch',
-      cancelText: 'Huỷ',
-      confirmText: 'Chọn',
-      builder: (BuildContext context, Widget? child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: AppColors.neonCyan,
-              surface: AppColors.bgMid,
-              onSurface: AppColors.ink,
-            ),
-          ),
-          child: child!,
-        );
-      },
-    );
-    if (time == null) return;
-
-    setState(() {
-      _date = DateTime(date.year, date.month, date.day, time.hour, time.minute);
-    });
+    if (picked != null && mounted) {
+      setState(() => _date = picked);
+    }
   }
 }

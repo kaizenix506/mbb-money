@@ -172,30 +172,50 @@ void main() {
       expect(resolved[2].category.tint, const Color(0xFF94A3B8));
     });
 
-    test('donut chart slices enforce distinct colors even when categories share same color', () {
-      // 5 categories like in Hoàng's screenshot where 4 were cyan
+    test('CategoryStore.areColorsVisuallySimilar correctly detects similar hues and separates distinct colors', () {
+      const Color cyan = Color(0xFF00E5FF); // Hue ~186°
+      const Color skyCyan = Color(0xFF06B6D4); // Hue ~189°
+      const Color turquoise = Color(0xFF00F5D4); // Hue ~172°
+      const Color orange = Color(0xFFFF5722); // Hue ~14°
+      const Color purple = Color(0xFFA855F7); // Hue ~271°
+      const Color green = Color(0xFF00E676); // Hue ~151°
+
+      // Visually similar cyan shades must return true
+      expect(CategoryStore.areColorsVisuallySimilar(cyan, skyCyan), isTrue);
+      expect(CategoryStore.areColorsVisuallySimilar(cyan, turquoise), isTrue);
+
+      // Distinct hues must return false
+      expect(CategoryStore.areColorsVisuallySimilar(cyan, orange), isFalse);
+      expect(CategoryStore.areColorsVisuallySimilar(cyan, purple), isFalse);
+      expect(CategoryStore.areColorsVisuallySimilar(cyan, green), isFalse);
+      expect(CategoryStore.areColorsVisuallySimilar(orange, purple), isFalse);
+    });
+
+    test('donut chart slices enforce distinct colors using perceptual visual similarity', () {
+      // 5 categories where shopping is Cyan and Skin_Care is Sky Cyan
       final List<({CategoryRef category, int total})> items = [
         (category: const CategoryRef(id: 'c1', label: 'shopping', icon: Icons.shopping_bag, tint: Color(0xFF00E5FF), isCustom: true), total: 340000),
         (category: const CategoryRef(id: 'c2', label: 'Ăn uống', icon: Icons.restaurant, tint: Color(0xFFFF5722)), total: 200000),
-        (category: const CategoryRef(id: 'c3', label: 'AI', icon: Icons.smart_toy, tint: Color(0xFF00E5FF), isCustom: true), total: 180000),
-        (category: const CategoryRef(id: 'c4', label: 'Skin_Care', icon: Icons.spa, tint: Color(0xFF00E5FF), isCustom: true), total: 170000),
-        (category: const CategoryRef(id: 'c5', label: 'Di chuyển', icon: Icons.directions_car, tint: Color(0xFF00E5FF), isCustom: true), total: 110000),
+        (category: const CategoryRef(id: 'c3', label: 'AI', icon: Icons.smart_toy, tint: Color(0xFF00E676), isCustom: true), total: 180000),
+        (category: const CategoryRef(id: 'c4', label: 'Skin_Care', icon: Icons.spa, tint: Color(0xFF06B6D4), isCustom: true), total: 170000), // Sky Cyan!
+        (category: const CategoryRef(id: 'c5', label: 'Di chuyển', icon: Icons.directions_car, tint: Color(0xFFFF2D78), isCustom: true), total: 110000),
       ];
 
-      final Set<int> usedSliceColors = <int>{};
+      final List<Color> usedSliceColors = <Color>[];
       final List<DonutSlice> slices = <DonutSlice>[];
       for (int i = 0; i < items.length; i++) {
         final item = items[i];
         Color sliceColor = item.category.tint;
-        if (usedSliceColors.contains(sliceColor.toARGB32())) {
+        if (usedSliceColors.any((Color c) => CategoryStore.areColorsVisuallySimilar(c, sliceColor))) {
           for (final int palVal in CategoryStore.neonPalette) {
-            if (!usedSliceColors.contains(palVal)) {
-              sliceColor = Color(palVal);
+            final Color candidate = Color(palVal);
+            if (!usedSliceColors.any((Color c) => CategoryStore.areColorsVisuallySimilar(c, candidate))) {
+              sliceColor = candidate;
               break;
             }
           }
         }
-        usedSliceColors.add(sliceColor.toARGB32());
+        usedSliceColors.add(sliceColor);
         slices.add(DonutSlice(
           label: item.category.label,
           value: item.total,
@@ -203,15 +223,25 @@ void main() {
         ));
       }
 
-      // 5 slices must have 5 UNIQUE colors!
+      // 5 slices must have 5 UNIQUE and perceptually non-conflicting colors!
       expect(slices.length, 5);
-      final Set<Color> uniqueColors = slices.map((DonutSlice s) => s.color).toSet();
-      expect(uniqueColors.length, 5, reason: 'All 5 categories must receive distinct colors');
       expect(slices[0].color, const Color(0xFF00E5FF)); // shopping keeps cyan
       expect(slices[1].color, const Color(0xFFFF5722)); // Ăn uống keeps orange
-      expect(slices[2].color, isNot(const Color(0xFF00E5FF))); // AI gets distinct color
-      expect(slices[3].color, isNot(const Color(0xFF00E5FF))); // Skin_Care gets distinct color
-      expect(slices[4].color, isNot(const Color(0xFF00E5FF))); // Di chuyển gets distinct color
+      expect(slices[2].color, const Color(0xFF00E676)); // AI keeps emerald green
+      // Skin_Care (which started as 0xFF06B6D4 sky cyan) MUST NOT remain cyan!
+      expect(CategoryStore.areColorsVisuallySimilar(slices[0].color, slices[3].color), isFalse);
+      expect(slices[3].color, isNot(const Color(0xFF00E5FF)));
+      expect(slices[3].color, isNot(const Color(0xFF06B6D4)));
+      // Verify all 5 slices are mutually visually distinct
+      for (int i = 0; i < slices.length; i++) {
+        for (int j = i + 1; j < slices.length; j++) {
+          expect(
+            CategoryStore.areColorsVisuallySimilar(slices[i].color, slices[j].color),
+            isFalse,
+            reason: '${slices[i].label} and ${slices[j].label} must have visually distinct colors',
+          );
+        }
+      }
     });
   });
 

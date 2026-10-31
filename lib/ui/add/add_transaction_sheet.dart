@@ -13,6 +13,7 @@ import '../categories/manage_categories_page.dart';
 import '../category_ref.dart';
 import '../stores/transaction_store.dart';
 import '../widgets/category_chip_grid.dart';
+import '../widgets/cyber_date_picker.dart';
 import '../widgets/sheet_kit.dart';
 
 /// Quick-add sheet.
@@ -326,43 +327,13 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
       };
 
   Future<void> _pickDate() async {
-    final DateTime now = VnClock.localNow();
-    final DateTime? date = await showDatePicker(
+    final DateTime? picked = await showCyberDateTimePicker(
       context: context,
-      initialDate: _date,
-      firstDate: DateTime(now.year - 5),
-      lastDate: DateTime(now.year + 1),
-      helpText: 'Ngày giao dịch',
-      cancelText: 'Huỷ',
-      confirmText: 'Chọn',
-      builder: (BuildContext context, Widget? child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: AppColors.mint,
-              surface: AppColors.bgMid,
-              onSurface: AppColors.ink,
-            ),
-          ),
-          child: child!,
-        );
-      },
+      initialDateTime: _date,
     );
-    if (date == null) return;
-
-    if (!mounted) return;
-    final TimeOfDay? time = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(_date),
-      helpText: 'Giờ giao dịch',
-      cancelText: 'Huỷ',
-      confirmText: 'Chọn',
-    );
-    if (time == null) return;
-
-    setState(() {
-      _date = DateTime(date.year, date.month, date.day, time.hour, time.minute);
-    });
+    if (picked != null && mounted) {
+      setState(() => _date = picked);
+    }
   }
 }
 
@@ -472,6 +443,11 @@ class _DateField extends StatelessWidget {
         value.month == now.month &&
         value.day == now.day;
 
+    final String dayStr = isToday
+        ? 'Hôm nay'
+        : '${Fmt.dayOfWeek(value)}, ${value.day}/${value.month}';
+    final String timeStr = '${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}';
+
     return InkWell(
       onTap: onPick,
       borderRadius: BorderRadius.circular(AppRadius.field),
@@ -484,19 +460,51 @@ class _DateField extends StatelessWidget {
         ),
         child: Row(
           children: <Widget>[
-            const Icon(Icons.schedule_rounded,
-                size: 18, color: AppColors.inkFaint),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                isToday
-                    ? 'Hôm nay · ${Fmt.time(value)}'
-                    : '${Fmt.dayMonth(value)} · ${Fmt.time(value)}',
-                style: const TextStyle(fontSize: 13.5, color: AppColors.ink),
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: AppColors.neonCyan.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.access_time_rounded,
+                size: 16,
+                color: AppColors.neonCyan,
               ),
             ),
-            const Icon(Icons.chevron_right_rounded,
-                size: 18, color: AppColors.inkFaint),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                '$dayStr · $timeStr',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.ink,
+                ),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Text(
+                'Cuộn dọc',
+                style: TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.inkFaint,
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            const Icon(
+              Icons.unfold_more_rounded,
+              size: 18,
+              color: AppColors.inkFaint,
+            ),
           ],
         ),
       ),

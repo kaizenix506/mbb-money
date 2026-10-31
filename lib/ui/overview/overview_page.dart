@@ -108,7 +108,7 @@ class _OverviewPageState extends State<OverviewPage> {
           color: AppColors.mint,
           backgroundColor: AppColors.bgMid,
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(18, 4, 18, 120),
+            padding: const EdgeInsets.fromLTRB(18, 4, 18, 140),
             physics: const AlwaysScrollableScrollPhysics(),
             children: <Widget>[
               LiveHeader(
@@ -245,20 +245,21 @@ class _MonthInsights extends StatelessWidget {
         .skip(topN)
         .fold<int>(0, (int s, ({CategoryRef category, int total}) e) => s + e.total);
 
-    final Set<int> usedSliceColors = <int>{};
+    final List<Color> usedSliceColors = <Color>[];
     final List<DonutSlice> slices = <DonutSlice>[];
     for (int i = 0; i < head.length; i++) {
       final item = head[i];
       Color sliceColor = item.category.tint;
-      if (usedSliceColors.contains(sliceColor.toARGB32())) {
+      if (usedSliceColors.any((Color c) => CategoryStore.areColorsVisuallySimilar(c, sliceColor))) {
         for (final int palVal in CategoryStore.neonPalette) {
-          if (!usedSliceColors.contains(palVal)) {
-            sliceColor = Color(palVal);
+          final Color candidate = Color(palVal);
+          if (!usedSliceColors.any((Color c) => CategoryStore.areColorsVisuallySimilar(c, candidate))) {
+            sliceColor = candidate;
             break;
           }
         }
       }
-      usedSliceColors.add(sliceColor.toARGB32());
+      usedSliceColors.add(sliceColor);
       slices.add(DonutSlice(
         label: item.category.label,
         value: item.total,

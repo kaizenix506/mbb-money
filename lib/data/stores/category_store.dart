@@ -130,26 +130,25 @@ class CategoryStore extends ChangeNotifier {
   static const String _prefsKey = 'mbb.custom_categories.v4';
   static const String _kFallbackId = 'other';
 
-  /// Vibrant Cyberpunk neon palette where every color is distinct and high-contrast.
+  /// Vibrant Cyberpunk neon palette where every color belongs to an ultra-distinct
+  /// hue family to ensure no two categories look alike to human eyes.
   static const List<int> neonPalette = <int>[
-    0xFF00E5FF, // Cyber Cyan
-    0xFFFF5722, // Neon Orange
-    0xFFA855F7, // Neon Purple / Violet
-    0xFF10B981, // Emerald Green
-    0xFFEC4899, // Hot Pink / Magenta
-    0xFFFACC15, // Cyber Yellow
-    0xFF3B82F6, // Electric Royal Blue
-    0xFFD97706, // Amber Caramel
-    0xFF00F5D4, // Turquoise Mint
-    0xFFFB7185, // Coral Rose
-    0xFF6366F1, // Indigo Neon
-    0xFFEF4444, // Ruby Red
-    0xFF84CC16, // Lime Green
-    0xFFF43F5E, // Bright Rose
-    0xFF06B6D4, // Deep Sky Cyan
-    0xFFD946EF, // Fuchsia Orchid
-    0xFFF59E0B, // Honey Gold
-    0xFF8B5CF6, // Bright Lavender
+    0xFF00E5FF, // 0. Cyber Cyan (Xanh lơ điện - Hue ~186°)
+    0xFFFF5722, // 1. Neon Orange (Đỏ cam tươi - Hue ~14°)
+    0xFFA855F7, // 2. Neon Purple (Tím thạch anh - Hue ~271°)
+    0xFF00E676, // 3. Neon Emerald Green (Xanh lá tươi - Hue ~151°)
+    0xFFFF2D78, // 4. Neon Magenta Pink (Hồng cánh sen đậm - Hue ~338°)
+    0xFFFFD600, // 5. Cyber Yellow (Vàng chanh tươi - Hue ~50°)
+    0xFF2979FF, // 6. Electric Royal Blue (Xanh dương hoàng gia - Hue ~218°)
+    0xFFD97706, // 7. Amber Caramel (Nâu caramel hổ phách - Hue ~32°)
+    0xFFAEEA00, // 8. Cyber Lime (Xanh chanh neon - Hue ~75°)
+    0xFF94A3B8, // 9. Slate Titanium (Xám bạc titan)
+    0xFFE040FB, // 10. Bright Orchid (Tím phong lan sáng - Hue ~292°)
+    0xFFFF8A65, // 11. Coral Salmon (Hồng san hô ấm - Hue ~16°)
+    0xFF6366F1, // 12. Cyber Indigo (Tím lam Indigo - Hue ~239°)
+    0xFF10B981, // 13. Deep Emerald (Ngọc lục bảo - Hue ~160°)
+    0xFFFF1744, // 14. Ruby Crimson (Đỏ tươi neon - Hue ~348°)
+    0xFF38BDF8, // 15. Sky Blue (Xanh da trời - Hue ~199°)
   ];
 
   /// Default rich preset categories.
@@ -255,47 +254,101 @@ class CategoryStore extends ChangeNotifier {
 
   CategoryItem findById(String? id) => resolve(id) ?? fallback;
 
+  /// Checks if two colors are identical or visually indistinguishable to human eyes.
+  /// Uses perceptual HSV hue angular distance so colors in the same family
+  /// (e.g. Cyan vs Sky Blue or Turquoise) are recognized as conflicting.
+  static bool areColorsVisuallySimilar(Color a, Color b) {
+    if (a.toARGB32() == b.toARGB32()) return true;
+    final HSVColor ha = HSVColor.fromColor(a);
+    final HSVColor hb = HSVColor.fromColor(b);
+
+    // If both are neutral / low saturation greys, compare value (brightness)
+    final bool aNeutral = ha.saturation < 0.22;
+    final bool bNeutral = hb.saturation < 0.22;
+    if (aNeutral && bNeutral) {
+      return (ha.value - hb.value).abs() < 0.28;
+    }
+    if (aNeutral != bNeutral) {
+      return false; // One is grey/neutral, one is chromatic -> clearly distinct
+    }
+
+    // Both are chromatic: compare angular hue distance on color circle (0-360)
+    double hueDiff = (ha.hue - hb.hue).abs();
+    if (hueDiff > 180.0) hueDiff = 360.0 - hueDiff;
+    return hueDiff < 30.0;
+  }
+
   /// Returns the next available vibrant neon color from [neonPalette]
-  /// that is not currently claimed by any category in the store.
+  /// that is perceptually distinct from all currently active categories.
   Color nextAvailableColor() {
-    final Set<int> used = _categories.map((CategoryItem c) => c.colorValue).toSet();
+    final List<Color> existingColors =
+        _categories.map((CategoryItem c) => Color(c.colorValue)).toList();
+
     for (final int cVal in neonPalette) {
-      if (!used.contains(cVal)) {
-        return Color(cVal);
+      final Color candidate = Color(cVal);
+      final bool conflict =
+          existingColors.any((Color e) => areColorsVisuallySimilar(e, candidate));
+      if (!conflict) {
+        return candidate;
       }
     }
-    return Color(neonPalette[_categories.length % neonPalette.length]);
+
+    // If all predefined hues have visual neighbors, pick the candidate
+    // that maximizes the minimum hue distance to any existing color.
+    Color bestCandidate = Color(neonPalette.first);
+    double maxMinDist = -1.0;
+    for (final int cVal in neonPalette) {
+      final Color cand = Color(cVal);
+      final HSVColor candHsv = HSVColor.fromColor(cand);
+      double minDist = 360.0;
+      for (final Color e in existingColors) {
+        final HSVColor eHsv = HSVColor.fromColor(e);
+        double d = (candHsv.hue - eHsv.hue).abs();
+        if (d > 180.0) d = 360.0 - d;
+        if (d < minDist) minDist = d;
+      }
+      if (minDist > maxMinDist) {
+        maxMinDist = minDist;
+        bestCandidate = cand;
+      }
+    }
+    return bestCandidate;
   }
 
   /// Enforces that every category has its own distinct, vibrant Cyberpunk color.
-  /// If multiple categories have duplicate colors (e.g. custom categories all
-  /// defaulted to cyan), this automatically re-assigns unique colors so each
-  /// category stands out individually on charts and badges.
+  /// If multiple categories have duplicate or visually similar colors (e.g. custom
+  /// categories both defaulting to cyan hues), this automatically re-assigns
+  /// unique colors so each category stands out individually on charts and badges.
   bool _ensureDistinctColors() {
-    final Set<int> used = <int>{};
+    final List<Color> assignedColors = <Color>[];
     bool changed = false;
     final List<CategoryItem> updated = <CategoryItem>[];
 
     for (int i = 0; i < _categories.length; i++) {
       final CategoryItem c = _categories[i];
-      if (!used.contains(c.colorValue)) {
-        used.add(c.colorValue);
+      final Color currentColor = Color(c.colorValue);
+      final bool hasConflict =
+          assignedColors.any((Color a) => areColorsVisuallySimilar(a, currentColor));
+
+      if (!hasConflict) {
+        assignedColors.add(currentColor);
         updated.add(c);
       } else {
-        // Duplicate color detected! Find next available vibrant color
-        int newColorVal = c.colorValue;
+        // Visual conflict detected! Find next candidate from neonPalette with no conflict
+        Color newColor = currentColor;
         for (final int palVal in neonPalette) {
-          if (!used.contains(palVal)) {
-            newColorVal = palVal;
+          final Color candidate = Color(palVal);
+          if (!assignedColors.any((Color a) => areColorsVisuallySimilar(a, candidate))) {
+            newColor = candidate;
             break;
           }
         }
-        used.add(newColorVal);
+        assignedColors.add(newColor);
         final CategoryItem fixed = CategoryItem(
           id: c.id,
           label: c.label,
           iconKey: c.iconKey,
-          colorValue: newColorVal,
+          colorValue: newColor.toARGB32(),
           isCustom: c.isCustom,
         );
         updated.add(fixed);
