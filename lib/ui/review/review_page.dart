@@ -135,7 +135,7 @@ class _ReviewCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final bool income = transaction.isIncome;
     final List<CategoryRef> choices =
-        context.categories.choicesFor(isIncome: income);
+        context.watchCategories.choicesFor(isIncome: income);
 
     return GlassCard(
       child: Column(

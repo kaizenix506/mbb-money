@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mbb_money/data/models/category.dart';
 import 'package:mbb_money/data/models/transaction.dart';
@@ -122,6 +123,52 @@ void main() {
       expect(slices.length, 3);
       expect(slices[0].label, 'Trọ & Nhà');
       expect(slices[0].value, 150000);
+    });
+
+    test('uncategorized transactions get designated amber category instead of collapsing to Khác', () {
+      final List<({String? id, int total})> raw = [
+        (id: 'food', total: 100000),
+        (id: null, total: 500000), // unclassified row from bank
+        (id: 'other', total: 70000), // genuine other row
+      ];
+
+      final Map<String, ({CategoryRef category, int total})> merged = {};
+      for (final c in raw) {
+        if (c.total <= 0) continue;
+        final CategoryRef ref = (c.id == null || c.id!.trim().isEmpty)
+            ? CategoryRef(
+                id: 'uncategorized',
+                label: 'Chưa phân loại',
+                icon: Category.other.icon,
+                tint: const Color(0xFFFF9100),
+              )
+            : (c.id == 'food'
+                ? CategoryRef.fromEnum(Category.food)
+                : CategoryRef.fallback);
+        final existing = merged[ref.id];
+        if (existing != null) {
+          merged[ref.id] = (category: ref, total: existing.total + c.total);
+        } else {
+          merged[ref.id] = (category: ref, total: c.total);
+        }
+      }
+
+      final List<({CategoryRef category, int total})> resolved =
+          merged.values.toList()..sort((a, b) => b.total.compareTo(a.total));
+
+      // 3 completely distinct categories: uncategorized (500k), food (100k), other (70k)
+      expect(resolved.length, 3);
+      expect(resolved[0].category.id, 'uncategorized');
+      expect(resolved[0].category.label, 'Chưa phân loại');
+      expect(resolved[0].category.tint, const Color(0xFFFF9100));
+
+      expect(resolved[1].category.id, 'food');
+      expect(resolved[1].category.label, 'Ăn uống');
+      expect(resolved[1].category.tint, const Color(0xFFFF5722));
+
+      expect(resolved[2].category.id, 'other');
+      expect(resolved[2].category.label, 'Khác');
+      expect(resolved[2].category.tint, const Color(0xFF94A3B8));
     });
   });
 }

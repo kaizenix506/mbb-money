@@ -209,13 +209,15 @@ class _MonthInsights extends StatelessWidget {
     // Category.byId() puts every custom category into one "Khác" wedge, which
     // is exactly the donut Hoàng complained about.
     final List<({String? id, int total})> cats = store.expenseByCategoryId;
-    final CategoryResolver resolver = context.categories;
+    final CategoryResolver resolver = context.watchCategories;
 
     final Map<String, ({CategoryRef category, int total})> merged =
         <String, ({CategoryRef category, int total})>{};
     for (final ({String? id, int total}) c in cats) {
       if (c.total <= 0) continue;
-      final CategoryRef ref = resolver.findById(c.id);
+      final CategoryRef ref = (c.id == null || c.id!.trim().isEmpty)
+          ? (resolver.resolve('uncategorized') ?? CategoryRef.fallback)
+          : resolver.findById(c.id);
       final ({CategoryRef category, int total})? existing = merged[ref.id];
       if (existing != null) {
         merged[ref.id] = (category: ref, total: existing.total + c.total);
@@ -235,39 +237,25 @@ class _MonthInsights extends StatelessWidget {
     final int previous =
         trailing.length >= 2 ? trailing[trailing.length - 2].total : 0;
 
-    const int topN = 5;
+    const int topN = 8;
     final List<({CategoryRef category, int total})> head =
         resolved.take(topN).toList(growable: false);
     final int tailTotal = resolved
         .skip(topN)
         .fold<int>(0, (int s, ({CategoryRef category, int total}) e) => s + e.total);
 
-    const List<Color> donutPalette = <Color>[
-      Color(0xFFFF5722),
-      Color(0xFF00B0FF),
-      Color(0xFFD97706),
-      Color(0xFF6366F1),
-      Color(0xFFEC4899),
-      Color(0xFFA855F7),
-      Color(0xFFEF4444),
-      Color(0xFFFACC15),
-      Color(0xFF10B981),
-      Color(0xFFFB7185),
-    ];
     final List<DonutSlice> slices = <DonutSlice>[
-      for (int i = 0; i < head.length; i++)
+      for (final item in head)
         DonutSlice(
-          label: head[i].category.label,
-          value: head[i].total,
-          color: (head[i].category.tint != AppColors.inkFaint && head[i].category.id != 'other')
-              ? head[i].category.tint
-              : donutPalette[i % donutPalette.length],
+          label: item.category.label,
+          value: item.total,
+          color: item.category.tint,
         ),
       if (tailTotal > 0)
         DonutSlice(
-          label: 'Mục khác',
+          label: 'Các mục khác',
           value: tailTotal,
-          color: AppColors.inkFaint,
+          color: const Color(0xFF64748B),
         ),
     ];
 
@@ -298,48 +286,67 @@ class _MonthInsights extends StatelessWidget {
                       ),
                       const SizedBox(height: 10),
                       for (final DonutSlice s in slices)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 7),
-                          child: Row(
-                            children: <Widget>[
-                              Container(
-                                width: 7,
-                                height: 7,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: s.color,
-                                  boxShadow: <BoxShadow>[
-                                    BoxShadow(
-                                      color: s.color.withValues(alpha: 0.6),
-                                      blurRadius: 6,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  s.label,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 11.5,
-                                    color: AppColors.inkDim,
+                        InkWell(
+                          onTap: s.label == 'Chưa phân loại'
+                              ? () => Navigator.of(context).pushNamed('/review')
+                              : null,
+                          borderRadius: BorderRadius.circular(6),
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: 7),
+                            child: Row(
+                              children: <Widget>[
+                                Container(
+                                  width: 7,
+                                  height: 7,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: s.color,
+                                    boxShadow: <BoxShadow>[
+                                      BoxShadow(
+                                        color: s.color.withValues(alpha: 0.6),
+                                        blurRadius: 6,
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              ),
-                              Text(
-                                current == 0
-                                    ? '0%'
-                                    : '${((s.value / current) * 100).round()}%',
-                                style: const TextStyle(
-                                  fontFamily: 'Courier New',
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w800,
-                                  color: AppColors.ink,
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    s.label,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 11.5,
+                                      fontWeight: s.label == 'Chưa phân loại'
+                                          ? FontWeight.w700
+                                          : FontWeight.w400,
+                                      color: s.label == 'Chưa phân loại'
+                                          ? const Color(0xFFFFB800)
+                                          : AppColors.inkDim,
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ],
+                                if (s.label == 'Chưa phân loại') ...[
+                                  const Icon(
+                                    Icons.arrow_forward_ios_rounded,
+                                    size: 10,
+                                    color: Color(0xFFFFB800),
+                                  ),
+                                  const SizedBox(width: 4),
+                                ],
+                                Text(
+                                  current == 0
+                                      ? '0%'
+                                      : '${((s.value / current) * 100).round()}%',
+                                  style: const TextStyle(
+                                    fontFamily: 'Courier New',
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.ink,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                     ],

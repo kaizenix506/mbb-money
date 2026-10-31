@@ -144,7 +144,7 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
     final bool isIncome = _type == TxType.income;
     final Color accent = isIncome ? AppColors.mint : AppColors.coral;
     final List<CategoryRef> choices =
-        context.categories.choicesFor(isIncome: isIncome);
+        context.watchCategories.choicesFor(isIncome: isIncome);
     final CategoryRef? selectedCat = _categoryId != null
         ? choices.where((CategoryRef c) => c.id == _categoryId).firstOrNull
         : null;

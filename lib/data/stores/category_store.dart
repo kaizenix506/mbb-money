@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
+
+import '../db/transaction_dao.dart';
 
 /// Mapping of supported category icons using const IconData to keep tree-shaking 100% happy!
 const Map<String, IconData> categoryIconMap = {
@@ -103,8 +106,19 @@ class CategoryItem {
 /// Global Category Store allowing user to dynamically add, edit, or remove
 /// expense categories — including the built-in ones.
 class CategoryStore extends ChangeNotifier {
-  CategoryStore() {
+  CategoryStore({TransactionDao? dao}) : _dao = dao {
     _loadFromPrefs();
+  }
+
+  TransactionDao? _dao;
+
+  void attachDao(TransactionDao dao) {
+    _dao = dao;
+  }
+
+  Future<void> init({TransactionDao? dao}) async {
+    if (dao != null) _dao = dao;
+    await _loadFromPrefs();
   }
 
   static const String _prefsKey = 'mbb.custom_categories.v4';
@@ -216,34 +230,47 @@ class CategoryStore extends ChangeNotifier {
   Future<void> _loadFromPrefs() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getString(_prefsKey);
-      if (raw != null) {
-        final Map<String, dynamic> decoded = jsonDecode(raw) as Map<String, dynamic>;
+      String? raw = prefs.getString(_prefsKey);
+      raw ??= prefs.getString('mbb.custom_categories.v3');
+      raw ??= prefs.getString('mbb.custom_categories.v2');
+      raw ??= prefs.getString('mbb.custom_categories');
 
-        final List<dynamic> list = (decoded['items'] as List<dynamic>?) ?? <dynamic>[];
-        if (list.isNotEmpty) {
-          _categories = list
-              .map((dynamic item) {
-                final c = CategoryItem.fromJson(item as Map<String, dynamic>);
-                if (!c.isCustom) {
-                  final defaultMatch = _defaults.where((d) => d.id == c.id).firstOrNull;
-                  if (defaultMatch != null) {
-                    return CategoryItem(
-                      id: c.id,
-                      label: c.label,
-                      iconKey: c.iconKey,
-                      colorValue: defaultMatch.colorValue,
-                      isCustom: false,
-                    );
-                  }
-                }
-                return c;
-              })
-              .toList();
+      // Also check SQLite permanent backup if prefs is empty
+      if (raw == null && _dao != null) {
+        raw = await _dao!.readInternal('mbb_custom_categories');
+      }
+
+      if (raw != null) {
+        final dynamic decoded = jsonDecode(raw);
+        List<dynamic> list = <dynamic>[];
+        List<dynamic> hidden = <dynamic>[];
+
+        if (decoded is Map<String, dynamic>) {
+          list = (decoded['items'] as List<dynamic>?) ?? <dynamic>[];
+          hidden = (decoded['hiddenDefaults'] as List<dynamic>?) ?? <dynamic>[];
+        } else if (decoded is List) {
+          list = decoded;
         }
 
-        final List<dynamic> hidden =
-            (decoded['hiddenDefaults'] as List<dynamic>?) ?? <dynamic>[];
+        if (list.isNotEmpty) {
+          _categories = list.map((dynamic item) {
+            final c = CategoryItem.fromJson(item as Map<String, dynamic>);
+            if (!c.isCustom) {
+              final defaultMatch = _defaults.where((d) => d.id == c.id).firstOrNull;
+              if (defaultMatch != null) {
+                return CategoryItem(
+                  id: c.id,
+                  label: c.label,
+                  iconKey: c.iconKey,
+                  colorValue: defaultMatch.colorValue,
+                  isCustom: false,
+                );
+              }
+            }
+            return c;
+          }).toList();
+        }
+
         _hiddenDefaultIds
           ..clear()
           ..addAll(hidden.map((dynamic e) => e.toString()));
@@ -251,10 +278,70 @@ class CategoryStore extends ChangeNotifier {
         for (final CategoryItem c in _categories) {
           _known[c.id] = c;
         }
-        notifyListeners();
       }
+
+      // Sync with database for orphan categories
+      await _syncWithDatabase();
+
+      notifyListeners();
     } catch (e) {
       debugPrint('Error loading custom categories: $e');
+    }
+  }
+
+  Future<void> _syncWithDatabase() async {
+    if (_dao == null) return;
+    try {
+      final List<String> dbCatIds = await _dao!.distinctCategoryIds();
+      bool addedAny = false;
+      for (final String catId in dbCatIds) {
+        if (!_known.containsKey(catId) && catId != _kFallbackId) {
+          final String label = catId.startsWith('cat_') ? 'Danh mục tự tạo' : catId;
+          final item = CategoryItem(
+            id: catId,
+            label: label,
+            iconKey: guessIconKey(label),
+            colorValue: _defaults[(_categories.length + 2) % _defaults.length].colorValue,
+            isCustom: true,
+          );
+          final int otherIdx = _categories.indexWhere((CategoryItem c) => c.id == _kFallbackId);
+          if (otherIdx == -1) {
+            _categories.add(item);
+          } else {
+            _categories.insert(otherIdx, item);
+          }
+          _known[catId] = item;
+          addedAny = true;
+        }
+      }
+      if (addedAny) {
+        await _saveToPrefs();
+      } else {
+        // Ensure SQLite backup is up to date
+        final String encoded = jsonEncode(<String, dynamic>{
+          'items': _categories.map((CategoryItem c) => c.toJson()).toList(),
+          'hiddenDefaults': _hiddenDefaultIds.toList(),
+        });
+        await _dao!.writeInternal('mbb_custom_categories', encoded);
+      }
+    } catch (e) {
+      debugPrint('Error syncing categories with database: $e');
+    }
+  }
+
+  Future<void> _saveToPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String encoded = jsonEncode(<String, dynamic>{
+        'items': _categories.map((CategoryItem c) => c.toJson()).toList(),
+        'hiddenDefaults': _hiddenDefaultIds.toList(),
+      });
+      await prefs.setString(_prefsKey, encoded);
+      if (_dao != null) {
+        await _dao!.writeInternal('mbb_custom_categories', encoded);
+      }
+    } catch (e) {
+      debugPrint('Error saving custom categories: $e');
     }
   }
 
@@ -329,17 +416,4 @@ class CategoryStore extends ChangeNotifier {
   }
 
   bool get hasDeletedDefaults => _hiddenDefaultIds.isNotEmpty;
-
-  Future<void> _saveToPrefs() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final String encoded = jsonEncode(<String, dynamic>{
-        'items': _categories.map((CategoryItem c) => c.toJson()).toList(),
-        'hiddenDefaults': _hiddenDefaultIds.toList(),
-      });
-      await prefs.setString(_prefsKey, encoded);
-    } catch (e) {
-      debugPrint('Error saving custom categories: $e');
-    }
-  }
 }

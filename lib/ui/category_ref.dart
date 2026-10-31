@@ -68,19 +68,27 @@ class CategoryResolver {
 
   static const CategoryResolver _builtInsOnly = CategoryResolver._(null);
 
-  /// Reads the store from [context]. Only valid during a build.
-  static CategoryResolver of(BuildContext context) {
-    final CategoryStore? store =
-        Provider.of<CategoryStore?>(context, listen: false);
+  /// Reads the store from [context].
+  static CategoryResolver of(BuildContext context, {bool listen = false}) {
+    CategoryStore? store;
+    try {
+      store = Provider.of<CategoryStore?>(context, listen: listen);
+    } on Object {
+      try {
+        store = Provider.of<CategoryStore>(context, listen: listen);
+      } on Object {
+        store = null;
+      }
+    }
     return store == null ? _builtInsOnly : CategoryResolver._(store);
   }
 
   /// Delegates to [CategoryResolver.of]; tolerates a missing provider so widgets
   /// can still be used in isolation (tests, previews).
-  static CategoryResolver maybeOf(BuildContext? context) {
+  static CategoryResolver maybeOf(BuildContext? context, {bool listen = false}) {
     if (context == null) return _builtInsOnly;
     try {
-      return of(context);
+      return of(context, listen: listen);
     } on ProviderNotFoundException {
       return _builtInsOnly;
     }
@@ -89,6 +97,14 @@ class CategoryResolver {
   /// Resolves [id] to a full category, or `null` when nothing matches.
   CategoryRef? resolve(String? id) {
     if (id == null || id.isEmpty) return null;
+    if (id == 'uncategorized') {
+      return const CategoryRef(
+        id: 'uncategorized',
+        label: 'Chưa phân loại',
+        icon: Icons.help_outline_rounded,
+        tint: Color(0xFFFF9100),
+      );
+    }
     final CategoryItem? custom = _store?.resolve(id);
     if (custom != null) return CategoryRef.fromItem(custom);
     final Category? builtIn = Category.byId(id);
@@ -131,6 +147,9 @@ class CategoryResolver {
 
 /// Extension so any `BuildContext` can ask for a resolver.
 extension CategoryResolverX on BuildContext {
-  /// Prefer this over [Category.byId] for anything user-facing.
-  CategoryResolver get categories => CategoryResolver.of(this);
+  /// Read resolver without listening (e.g. in callbacks or one-off lookups).
+  CategoryResolver get categories => CategoryResolver.of(this, listen: false);
+
+  /// Watch resolver and rebuild automatically when CategoryStore updates (in build methods).
+  CategoryResolver get watchCategories => CategoryResolver.of(this, listen: true);
 }

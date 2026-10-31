@@ -24,7 +24,13 @@ class CategoryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final CategoryRef c = category ?? CategoryRef.fallback;
+    final CategoryRef c = category ??
+        const CategoryRef(
+          id: 'uncategorized',
+          label: 'Chưa phân loại',
+          icon: Icons.help_outline_rounded,
+          tint: Color(0xFFFF9100),
+        );
     return Container(
       width: size,
       height: size,

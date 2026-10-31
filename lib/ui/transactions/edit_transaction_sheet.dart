@@ -64,7 +64,7 @@ class _EditTransactionSheetState extends State<EditTransactionSheet> {
     final TransactionStore txStore = context.watch<TransactionStore>();
     final bool isIncome = widget.transaction.isIncome;
     final List<CategoryRef> choices =
-        context.categories.choicesFor(isIncome: isIncome);
+        context.watchCategories.choicesFor(isIncome: isIncome);
     final CategoryRef? selectedCat = _selectedCategoryId != null
         ? choices.where((CategoryRef c) => c.id == _selectedCategoryId).firstOrNull
         : null;

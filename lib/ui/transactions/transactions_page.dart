@@ -461,7 +461,7 @@ class _TransactionActions extends StatelessWidget {
             runSpacing: 8,
             children: <Widget>[
               for (final CategoryRef category
-                  in context.categories.choicesFor(isIncome: transaction.isIncome))
+                  in context.watchCategories.choicesFor(isIncome: transaction.isIncome))
                 MiniChip(
                   label: category.label,
                   icon: category.icon,

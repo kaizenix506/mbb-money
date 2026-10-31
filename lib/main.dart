@@ -74,7 +74,8 @@ Future<void> main() async {
   unawaited(links.start());
 
   final CyberAiService ai = CyberAiService(secrets: secrets);
-  final CategoryStore categories = CategoryStore();
+  final CategoryStore categories = CategoryStore(dao: dao);
+  await categories.init(dao: dao);
   final WishlistDao wishlistDao =
       WishlistDao(AppDatabase.instance.databaseIn(_dbDirectory));
   final WishlistStore wishlistStore = WishlistStore(dao: wishlistDao);

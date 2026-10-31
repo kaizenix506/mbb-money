@@ -223,44 +223,105 @@ class _DonutPainter extends CustomPainter {
         slices.fold<int>(0, (int s, DonutSlice d) => s + d.value);
     if (total <= 0) return;
 
-    double start = -math.pi / 2;
-    const double gap = 0.045;
+    final int count = slices.where((DonutSlice s) => s.value > 0).length;
+    if (count == 0) return;
+
+    // Minimum visible angle (approx 8.5 degrees) so even small categories
+    // have a clearly visible, distinct slice on the neon donut ring.
+    final double minSweep = count > 1 ? 0.15 : 0.0;
+    final double gap = count > 1 ? 0.06 : 0.0;
+    final double totalAvailable = (2 * math.pi - (count * gap)) * progress;
+
+    final List<double> sweeps = List<double>.filled(slices.length, 0.0);
+    if (count == 1) {
+      for (int i = 0; i < slices.length; i++) {
+        if (slices[i].value > 0) sweeps[i] = 2 * math.pi * progress;
+      }
+    } else {
+      double minReserved = 0;
+      double nonMinTotal = 0;
+      for (final DonutSlice s in slices) {
+        if (s.value <= 0) continue;
+        final double rawSweep = (s.value / total) * totalAvailable;
+        if (rawSweep < minSweep) {
+          minReserved += minSweep;
+        } else {
+          nonMinTotal += s.value;
+        }
+      }
+
+      final double remainingForLarge = math.max(0, totalAvailable - minReserved);
+      for (int i = 0; i < slices.length; i++) {
+        if (slices[i].value <= 0) continue;
+        final double rawSweep = (slices[i].value / total) * totalAvailable;
+        if (rawSweep < minSweep) {
+          sweeps[i] = minSweep;
+        } else if (nonMinTotal > 0) {
+          sweeps[i] = (slices[i].value / nonMinTotal) * remainingForLarge;
+        } else {
+          sweeps[i] = rawSweep;
+        }
+      }
+    }
+
+    const double start = -math.pi / 2;
 
     // Pass 1: Ambient Neon Glow (behind the sharp arc)
     double glowStart = start;
-    for (final DonutSlice s in slices) {
-      final double sweep = (s.value / total) * math.pi * 2 * progress;
+    for (int i = 0; i < slices.length; i++) {
+      final double sweep = sweeps[i];
       if (sweep <= 0) continue;
+      final Color c = slices[i].color;
       final Paint glowPaint = Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = stroke + 5
+        ..strokeWidth = stroke + 4
         ..strokeCap = StrokeCap.round
-        ..color = s.color.withValues(alpha: 0.45)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
-      canvas.drawArc(rect, glowStart + gap / 2, math.max(sweep - gap, 0.01), false, glowPaint);
-      glowStart += sweep;
+        ..color = c.withValues(alpha: 0.45)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7);
+      canvas.drawArc(
+        rect,
+        glowStart + gap / 2,
+        math.max(sweep - gap, 0.02),
+        false,
+        glowPaint,
+      );
+      glowStart += sweep + gap;
     }
 
-    // Pass 2: Solid, razor-sharp vivid core arc (NO blur, 100% crisp)
-    for (final DonutSlice s in slices) {
-      final double sweep = (s.value / total) * math.pi * 2 * progress;
+    // Pass 2: Solid, razor-sharp vivid core arc
+    double solidStart = start;
+    for (int i = 0; i < slices.length; i++) {
+      final double sweep = sweeps[i];
       if (sweep <= 0) continue;
+      final Color c = slices[i].color;
       final Paint solidPaint = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = stroke
-        ..strokeCap = StrokeCap.round
-        ..color = s.color;
-      canvas.drawArc(rect, start + gap / 2, math.max(sweep - gap, 0.01), false, solidPaint);
+        ..strokeCap = count > 1 ? StrokeCap.round : StrokeCap.butt
+        ..color = c;
+      canvas.drawArc(
+        rect,
+        solidStart + gap / 2,
+        math.max(sweep - gap, 0.02),
+        false,
+        solidPaint,
+      );
 
-      // Pass 3: Specular glassy reflection along the ridge (laser neon effect)
+      // Pass 3: Specular glassy reflection along the ridge
       final Paint highlightPaint = Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.2
+        ..strokeWidth = 2.0
         ..strokeCap = StrokeCap.round
-        ..color = Colors.white.withValues(alpha: 0.45);
-      canvas.drawArc(rect, start + gap / 2, math.max(sweep - gap, 0.01), false, highlightPaint);
+        ..color = Colors.white.withValues(alpha: 0.35);
+      canvas.drawArc(
+        rect,
+        solidStart + gap / 2 + 0.02,
+        math.max(sweep - gap - 0.04, 0.01),
+        false,
+        highlightPaint,
+      );
 
-      start += sweep;
+      solidStart += sweep + gap;
     }
   }
 

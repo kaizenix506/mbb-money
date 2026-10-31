@@ -32,12 +32,14 @@ class ReportsPage extends StatelessWidget {
         ? null
         : (current - prevMonthTotal) / prevMonthTotal;
 
-    final CategoryResolver resolver = context.categories;
+    final CategoryResolver resolver = context.watchCategories;
     final Map<String, ({CategoryRef category, int total})> groupedCats =
         <String, ({CategoryRef category, int total})>{};
     for (final ({String? id, int total}) c in cats) {
       if (c.total <= 0) continue;
-      final CategoryRef ref = resolver.findById(c.id);
+      final CategoryRef ref = (c.id == null || c.id!.trim().isEmpty)
+          ? (resolver.resolve('uncategorized') ?? CategoryRef.fallback)
+          : resolver.findById(c.id);
       final ({CategoryRef category, int total})? existing = groupedCats[ref.id];
       if (existing != null) {
         groupedCats[ref.id] = (category: ref, total: existing.total + c.total);

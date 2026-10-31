@@ -504,4 +504,18 @@ class TransactionDao {
     final Database db = await _db;
     await db.delete('transactions');
   }
+
+  /// All distinct category IDs ever written to the transactions ledger.
+  /// Used by CategoryStore to recover custom/historical categories that might
+  /// have been wiped from SharedPreferences.
+  Future<List<String>> distinctCategoryIds() async {
+    final Database db = await _db;
+    final List<Map<String, Object?>> rows = await db.rawQuery(
+      "SELECT DISTINCT category_id FROM transactions WHERE category_id IS NOT NULL AND category_id != ''",
+    );
+    return <String>[
+      for (final Map<String, Object?> r in rows)
+        if (r['category_id'] is String) r['category_id'] as String,
+    ];
+  }
 }
