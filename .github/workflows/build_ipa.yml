@@ -22,6 +22,12 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Analyze code and run tests
+        run: |
+          set -eo pipefail
+          flutter analyze
+          flutter test
+
       - name: Build iOS (unsigned release)
         # `flutter build` runs pod install, resolves the workspace path and
         # emits Runner.app in a predictable location.

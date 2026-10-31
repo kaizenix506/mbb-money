@@ -48,6 +48,7 @@ symbols/
 
 # Output
 *.ipa
+fetch_ipa.ps1
 build_out.txt
 test_gemini.py
 analyze_v2.txt
