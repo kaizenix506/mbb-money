@@ -38,6 +38,8 @@ jobs:
 
       - name: Package Payload into unsigned .ipa
         run: |
+          set -eo pipefail
+          rm -rf Payload MBBMoney_Cyberpunk_ESign.ipa
           mkdir -p Payload
           APP_PATH="build/ios/iphoneos/Runner.app"
           if [ ! -d "$APP_PATH" ]; then
@@ -52,8 +54,16 @@ jobs:
           fi
 
           echo "Packaging: $APP_PATH"
-          cp -R "$APP_PATH" Payload/
-          zip -r -9 MBBMoney_Cyberpunk_ESign.ipa Payload/
+          cp -a "$APP_PATH" Payload/
+
+          # Remove pre-existing Xcode ad-hoc signatures from embedded frameworks
+          # so third-party signing tools (ESign, Scarlet, AltStore) can apply
+          # the user's certificate and provisioning profile cleanly without
+          # nested signature collision or team ID mismatches.
+          find Payload -name "_CodeSignature" -exec rm -rf {} + 2>/dev/null || true
+
+          # Preserve symlinks with -y, critical for iOS dynamic frameworks
+          zip -r -9 -y MBBMoney_Cyberpunk_ESign.ipa Payload/
           ls -lh MBBMoney_Cyberpunk_ESign.ipa
 
           IPA_SIZE=$(stat -f%z MBBMoney_Cyberpunk_ESign.ipa 2>/dev/null || stat -c%s MBBMoney_Cyberpunk_ESign.ipa)

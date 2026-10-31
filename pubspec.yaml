@@ -1,7 +1,7 @@
 name: mbb_money
 description: "Quản lý thu chi cá nhân cho iPhone — đọc giao dịch MB Bank qua iOS Shortcut và SePay API."
 publish_to: "none"
-version: 0.1.0+1
+version: 0.2.0+2
 
 environment:
   sdk: ^3.7.0
