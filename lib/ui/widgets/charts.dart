@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/formatters.dart';
 import '../../core/theme.dart';
+import '../../data/stores/category_store.dart';
 import '../stores/transaction_store.dart';
 
 /// Opens a scrollable list of the last five years of months and jumps the
@@ -266,12 +267,29 @@ class _DonutPainter extends CustomPainter {
 
     const double start = -math.pi / 2;
 
+    // Guarantee distinct colors for every slice so adjacent slices never blend
+    final List<Color> sliceColors = List<Color>.filled(slices.length, Colors.transparent);
+    final Set<int> usedColors = <int>{};
+    for (int i = 0; i < slices.length; i++) {
+      Color c = slices[i].color;
+      if (usedColors.contains(c.toARGB32())) {
+        for (final int palVal in CategoryStore.neonPalette) {
+          if (!usedColors.contains(palVal)) {
+            c = Color(palVal);
+            break;
+          }
+        }
+      }
+      usedColors.add(c.toARGB32());
+      sliceColors[i] = c;
+    }
+
     // Pass 1: Ambient Neon Glow (behind the sharp arc)
     double glowStart = start;
     for (int i = 0; i < slices.length; i++) {
       final double sweep = sweeps[i];
       if (sweep <= 0) continue;
-      final Color c = slices[i].color;
+      final Color c = sliceColors[i];
       final Paint glowPaint = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = stroke + 4
@@ -293,7 +311,7 @@ class _DonutPainter extends CustomPainter {
     for (int i = 0; i < slices.length; i++) {
       final double sweep = sweeps[i];
       if (sweep <= 0) continue;
-      final Color c = slices[i].color;
+      final Color c = sliceColors[i];
       final Paint solidPaint = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = stroke

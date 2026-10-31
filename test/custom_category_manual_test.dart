@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mbb_money/data/models/category.dart';
 import 'package:mbb_money/data/models/transaction.dart';
 import 'package:mbb_money/data/models/tx_source.dart';
+import 'package:mbb_money/data/stores/category_store.dart';
 import 'package:mbb_money/ui/category_ref.dart';
 import 'package:mbb_money/ui/widgets/charts.dart';
 
@@ -169,6 +170,62 @@ void main() {
       expect(resolved[2].category.id, 'other');
       expect(resolved[2].category.label, 'Khác');
       expect(resolved[2].category.tint, const Color(0xFF94A3B8));
+    });
+
+    test('donut chart slices enforce distinct colors even when categories share same color', () {
+      // 5 categories like in Hoàng's screenshot where 4 were cyan
+      final List<({CategoryRef category, int total})> items = [
+        (category: CategoryRef(id: 'c1', label: 'shopping', icon: Icons.shopping_bag, tint: const Color(0xFF00E5FF), isCustom: true), total: 340000),
+        (category: CategoryRef(id: 'c2', label: 'Ăn uống', icon: Icons.restaurant, tint: const Color(0xFFFF5722)), total: 200000),
+        (category: CategoryRef(id: 'c3', label: 'AI', icon: Icons.smart_toy, tint: const Color(0xFF00E5FF), isCustom: true), total: 180000),
+        (category: CategoryRef(id: 'c4', label: 'Skin_Care', icon: Icons.spa, tint: const Color(0xFF00E5FF), isCustom: true), total: 170000),
+        (category: CategoryRef(id: 'c5', label: 'Di chuyển', icon: Icons.directions_car, tint: const Color(0xFF00E5FF), isCustom: true), total: 110000),
+      ];
+
+      final Set<int> usedSliceColors = <int>{};
+      final List<DonutSlice> slices = <DonutSlice>[];
+      for (int i = 0; i < items.length; i++) {
+        final item = items[i];
+        Color sliceColor = item.category.tint;
+        if (usedSliceColors.contains(sliceColor.toARGB32())) {
+          for (final int palVal in CategoryStore.neonPalette) {
+            if (!usedSliceColors.contains(palVal)) {
+              sliceColor = Color(palVal);
+              break;
+            }
+          }
+        }
+        usedSliceColors.add(sliceColor.toARGB32());
+        slices.add(DonutSlice(
+          label: item.category.label,
+          value: item.total,
+          color: sliceColor,
+        ));
+      }
+
+      // 5 slices must have 5 UNIQUE colors!
+      expect(slices.length, 5);
+      final Set<Color> uniqueColors = slices.map((DonutSlice s) => s.color).toSet();
+      expect(uniqueColors.length, 5, reason: 'All 5 categories must receive distinct colors');
+      expect(slices[0].color, const Color(0xFF00E5FF)); // shopping keeps cyan
+      expect(slices[1].color, const Color(0xFFFF5722)); // Ăn uống keeps orange
+      expect(slices[2].color, isNot(const Color(0xFF00E5FF))); // AI gets distinct color
+      expect(slices[3].color, isNot(const Color(0xFF00E5FF))); // Skin_Care gets distinct color
+      expect(slices[4].color, isNot(const Color(0xFF00E5FF))); // Di chuyển gets distinct color
+    });
+  });
+
+  group('CategoryStore neon palette', () {
+    test('contains at least 15 unique high-contrast colors', () {
+      expect(CategoryStore.neonPalette.length, greaterThanOrEqualTo(15));
+      final Set<int> unique = CategoryStore.neonPalette.toSet();
+      expect(unique.length, CategoryStore.neonPalette.length);
+    });
+
+    test('guessed icon for Di chuyển is transport', () {
+      expect(guessIconKey('Di chuyển'), 'transport');
+      expect(guessIconKey('Skin_Care'), 'beauty');
+      expect(guessIconKey('AI tool'), 'tech');
     });
   });
 }

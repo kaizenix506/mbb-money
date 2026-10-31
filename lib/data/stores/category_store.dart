@@ -23,6 +23,10 @@ const Map<String, IconData> categoryIconMap = {
   'sport': Icons.sports_soccer_rounded,
   'music': Icons.music_note_rounded,
   'gift': Icons.card_giftcard_rounded,
+  'tech': Icons.smart_toy_rounded,
+  'beauty': Icons.spa_rounded,
+  'work': Icons.work_rounded,
+  'invest': Icons.trending_up_rounded,
 };
 
 /// Guesses an icon key from a Vietnamese category name.
@@ -43,10 +47,12 @@ String guessIconKey(String label) {
     (key: 'drink', words: <String>['nước', 'sinh tố', 'sữa', 'bia', 'rượu', 'giải khát']),
     // Transport must sit above food: "xăng xe" contains "ăn" (x-ă-n-g),
     // so the food rule would otherwise claim every fuel purchase.
-    (key: 'transport', words: <String>['xăng', 'xe', 'grab', 'taxi', 'đi lại', 'vé', 'tàu']),
+    (key: 'transport', words: <String>['xăng', 'xe', 'grab', 'taxi', 'đi lại', 'di chuyển', 'chuyển', 'vé', 'tàu']),
+    (key: 'beauty', words: <String>['skin', 'care', 'skincare', 'mỹ phẩm', 'spa', 'làm đẹp', 'son', 'phấn']),
+    (key: 'tech', words: <String>['ai', 'gpt', 'chatgpt', 'tool', 'phần mềm', 'tech', 'công nghệ', 'software', 'bot']),
     (key: 'flight', words: <String>['du lịch', 'máy bay', 'khách sạn', 'resort', 'phượt']),
     (key: 'food', words: <String>['ăn', 'cơm', 'phở', 'bún', 'cháo', 'bánh', 'quán', 'nhậu']),
-    (key: 'shopping', words: <String>['mua', 'shop', 'quần', 'áo', 'giày', 'mỹ phẩm', 'đồ']),
+    (key: 'shopping', words: <String>['mua', 'shop', 'quần', 'áo', 'giày', 'đồ']),
     (key: 'bills', words: <String>['điện', 'nước sinh', 'mạng', 'internet', 'hoá đơn', 'hóa đơn', 'điện thoại', 'cước']),
     (key: 'health', words: <String>['thuốc', 'khám', 'bệnh', 'sức khoẻ', 'sức khỏe', 'gym', 'y tế']),
     (key: 'entertainment', words: <String>['game', 'phim', 'giải trí', 'karaoke', 'netflix']),
@@ -123,6 +129,28 @@ class CategoryStore extends ChangeNotifier {
 
   static const String _prefsKey = 'mbb.custom_categories.v4';
   static const String _kFallbackId = 'other';
+
+  /// Vibrant Cyberpunk neon palette where every color is distinct and high-contrast.
+  static const List<int> neonPalette = <int>[
+    0xFF00E5FF, // Cyber Cyan
+    0xFFFF5722, // Neon Orange
+    0xFFA855F7, // Neon Purple / Violet
+    0xFF10B981, // Emerald Green
+    0xFFEC4899, // Hot Pink / Magenta
+    0xFFFACC15, // Cyber Yellow
+    0xFF3B82F6, // Electric Royal Blue
+    0xFFD97706, // Amber Caramel
+    0xFF00F5D4, // Turquoise Mint
+    0xFFFB7185, // Coral Rose
+    0xFF6366F1, // Indigo Neon
+    0xFFEF4444, // Ruby Red
+    0xFF84CC16, // Lime Green
+    0xFFF43F5E, // Bright Rose
+    0xFF06B6D4, // Deep Sky Cyan
+    0xFFD946EF, // Fuchsia Orchid
+    0xFFF59E0B, // Honey Gold
+    0xFF8B5CF6, // Bright Lavender
+  ];
 
   /// Default rich preset categories.
   static final List<CategoryItem> _defaults = [
@@ -227,6 +255,61 @@ class CategoryStore extends ChangeNotifier {
 
   CategoryItem findById(String? id) => resolve(id) ?? fallback;
 
+  /// Returns the next available vibrant neon color from [neonPalette]
+  /// that is not currently claimed by any category in the store.
+  Color nextAvailableColor() {
+    final Set<int> used = _categories.map((CategoryItem c) => c.colorValue).toSet();
+    for (final int cVal in neonPalette) {
+      if (!used.contains(cVal)) {
+        return Color(cVal);
+      }
+    }
+    return Color(neonPalette[_categories.length % neonPalette.length]);
+  }
+
+  /// Enforces that every category has its own distinct, vibrant Cyberpunk color.
+  /// If multiple categories have duplicate colors (e.g. custom categories all
+  /// defaulted to cyan), this automatically re-assigns unique colors so each
+  /// category stands out individually on charts and badges.
+  bool _ensureDistinctColors() {
+    final Set<int> used = <int>{};
+    bool changed = false;
+    final List<CategoryItem> updated = <CategoryItem>[];
+
+    for (int i = 0; i < _categories.length; i++) {
+      final CategoryItem c = _categories[i];
+      if (!used.contains(c.colorValue)) {
+        used.add(c.colorValue);
+        updated.add(c);
+      } else {
+        // Duplicate color detected! Find next available vibrant color
+        int newColorVal = c.colorValue;
+        for (final int palVal in neonPalette) {
+          if (!used.contains(palVal)) {
+            newColorVal = palVal;
+            break;
+          }
+        }
+        used.add(newColorVal);
+        final CategoryItem fixed = CategoryItem(
+          id: c.id,
+          label: c.label,
+          iconKey: c.iconKey,
+          colorValue: newColorVal,
+          isCustom: c.isCustom,
+        );
+        updated.add(fixed);
+        _known[c.id] = fixed;
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      _categories = updated;
+    }
+    return changed;
+  }
+
   Future<void> _loadFromPrefs() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -283,6 +366,12 @@ class CategoryStore extends ChangeNotifier {
       // Sync with database for orphan categories
       await _syncWithDatabase();
 
+      // Enforce distinct color per category so no two categories share the same color
+      final bool colorsChanged = _ensureDistinctColors();
+      if (colorsChanged) {
+        await _saveToPrefs();
+      }
+
       notifyListeners();
     } catch (e) {
       debugPrint('Error loading custom categories: $e');
@@ -301,7 +390,7 @@ class CategoryStore extends ChangeNotifier {
             id: catId,
             label: label,
             iconKey: guessIconKey(label),
-            colorValue: _defaults[(_categories.length + 2) % _defaults.length].colorValue,
+            colorValue: nextAvailableColor().toARGB32(),
             isCustom: true,
           );
           final int otherIdx = _categories.indexWhere((CategoryItem c) => c.id == _kFallbackId);
@@ -348,9 +437,10 @@ class CategoryStore extends ChangeNotifier {
   Future<void> addCategory({
     required String label,
     required String iconKey,
-    required Color color,
+    Color? color,
   }) async {
     final String newId = 'cat_${DateTime.now().millisecondsSinceEpoch}';
+    final Color effectiveColor = color ?? nextAvailableColor();
     final CategoryItem item = CategoryItem(
       id: newId,
       label: label.trim(),

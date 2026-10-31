@@ -11,6 +11,7 @@ import '../../data/models/transaction.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../data/repositories/sync_service.dart';
 import '../../data/services/new_transaction_watcher.dart';
+import '../../data/stores/category_store.dart';
 import '../categories/manage_categories_page.dart';
 import '../category_ref.dart';
 import '../settings/settings_page.dart';
@@ -244,20 +245,33 @@ class _MonthInsights extends StatelessWidget {
         .skip(topN)
         .fold<int>(0, (int s, ({CategoryRef category, int total}) e) => s + e.total);
 
-    final List<DonutSlice> slices = <DonutSlice>[
-      for (final item in head)
-        DonutSlice(
-          label: item.category.label,
-          value: item.total,
-          color: item.category.tint,
-        ),
-      if (tailTotal > 0)
-        DonutSlice(
-          label: 'Các mục khác',
-          value: tailTotal,
-          color: const Color(0xFF64748B),
-        ),
-    ];
+    final Set<int> usedSliceColors = <int>{};
+    final List<DonutSlice> slices = <DonutSlice>[];
+    for (int i = 0; i < head.length; i++) {
+      final item = head[i];
+      Color sliceColor = item.category.tint;
+      if (usedSliceColors.contains(sliceColor.toARGB32())) {
+        for (final int palVal in CategoryStore.neonPalette) {
+          if (!usedSliceColors.contains(palVal)) {
+            sliceColor = Color(palVal);
+            break;
+          }
+        }
+      }
+      usedSliceColors.add(sliceColor.toARGB32());
+      slices.add(DonutSlice(
+        label: item.category.label,
+        value: item.total,
+        color: sliceColor,
+      ));
+    }
+    if (tailTotal > 0) {
+      slices.add(DonutSlice(
+        label: 'Các mục khác',
+        value: tailTotal,
+        color: const Color(0xFF64748B),
+      ));
+    }
 
     return Column(
       children: <Widget>[
