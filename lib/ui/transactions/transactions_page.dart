@@ -402,9 +402,57 @@ class _TransactionActions extends StatelessWidget {
 
   final Transaction transaction;
 
+  /// "Xoá hẳn" is irreversible, so it always asks first and says plainly what
+  /// will happen — including that a bank row stays gone across syncs.
+  Future<void> _confirmDelete(BuildContext context) async {
+    final TransactionStore store = context.read<TransactionStore>();
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        backgroundColor: AppColors.bgMid,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Xoá hẳn giao dịch?',
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+        ),
+        content: Text(
+          transaction.referenceNumber == null
+              ? 'Khoản này sẽ bị xoá vĩnh viễn khỏi sổ và không thể hoàn tác.'
+              : 'Khoản này sẽ bị xoá vĩnh viễn và không hiện lại ở lần '
+                  'đồng bộ ngân hàng sau.',
+          style: const TextStyle(
+            fontSize: 13.5,
+            height: 1.45,
+            color: AppColors.inkDim,
+          ),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Hủy', style: TextStyle(color: AppColors.inkDim)),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.coral,
+              foregroundColor: const Color(0xFF2A0508),
+            ),
+            child: const Text('Xoá ngay'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await store.delete(transaction);
+    if (context.mounted) Navigator.of(context).pop();
+  }
+
   @override
   Widget build(BuildContext context) {
     final TransactionStore store = context.read<TransactionStore>();
+    final List<CategoryRef> choices =
+        context.watchCategories.choicesFor(isIncome: transaction.isIncome);
 
     return Container(
       decoration: const BoxDecoration(
@@ -422,75 +470,83 @@ class _TransactionActions extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-          Center(
-            child: Container(
-              width: 38,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.18),
-                borderRadius: BorderRadius.circular(2),
+            Center(
+              child: Container(
+                width: 38,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 18),
-          Text(
-            transaction.description.isEmpty
-                ? 'Giao dịch'
-                : transaction.description,
-            style: AppText.sectionTitle.copyWith(color: AppColors.ink),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '${Fmt.fullDate(transaction.occurredAt)} · '
-            '${Fmt.time(transaction.occurredAt)}',
-            style: const TextStyle(fontSize: 12, color: AppColors.inkDim),
-          ),
-          const SizedBox(height: 20),
-          const Text(
-            'ĐỔI PHÂN LOẠI',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.4,
-              color: AppColors.inkFaint,
+            const SizedBox(height: 18),
+            Text(
+              transaction.description.isEmpty
+                  ? 'Giao dịch'
+                  : transaction.description,
+              style: AppText.sectionTitle.copyWith(color: AppColors.ink),
             ),
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: <Widget>[
-              for (final CategoryRef category
-                  in context.watchCategories.choicesFor(isIncome: transaction.isIncome))
-                MiniChip(
-                  label: category.label,
-                  icon: category.icon,
-                  tint: category.tint,
-                  selected: transaction.categoryId == category.id,
-                  onTap: () async {
-                    await store.setCategoryId(transaction, category.id);
-                    if (context.mounted) Navigator.of(context).pop();
-                  },
+            const SizedBox(height: 4),
+            Text(
+              '${Fmt.fullDate(transaction.occurredAt)} · '
+              '${Fmt.time(transaction.occurredAt)}',
+              style: const TextStyle(fontSize: 12, color: AppColors.inkDim),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'ĐỔI PHÂN LOẠI',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.4,
+                color: AppColors.inkFaint,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: <Widget>[
+                for (final CategoryRef category in choices)
+                  MiniChip(
+                    label: category.label,
+                    icon: category.icon,
+                    tint: category.tint,
+                    selected: transaction.categoryId == category.id,
+                    onTap: () async {
+                      await store.setCategoryId(transaction, category.id);
+                      if (context.mounted) Navigator.of(context).pop();
+                    },
+                  ),
+              ],
+            ),
+            const SizedBox(height: 22),
+            const Divider(height: 1, color: AppColors.strokeFaint),
+            const SizedBox(height: 6),
+            TextButton.icon(
+              onPressed: () => _confirmDelete(context),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                alignment: Alignment.centerLeft,
+              ),
+              icon: const Icon(
+                Icons.delete_forever_rounded,
+                size: 19,
+                color: AppColors.coral,
+              ),
+              label: const Text(
+                'Xoá hẳn giao dịch',
+                style: TextStyle(
+                  color: AppColors.coral,
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w600,
                 ),
-            ],
-          ),
-          const SizedBox(height: 22),
-          TextButton.icon(
-            onPressed: () async {
-              await store.delete(transaction);
-              if (context.mounted) Navigator.of(context).pop();
-            },
-            icon: const Icon(Icons.delete_outline_rounded,
-                size: 18, color: AppColors.coral),
-            label: const Text(
-              'Xoá giao dịch',
-              style: TextStyle(color: AppColors.coral, fontSize: 13),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
-  );
+    );
   }
-
 }

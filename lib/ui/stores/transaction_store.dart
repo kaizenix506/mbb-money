@@ -30,6 +30,8 @@ class TransactionStore extends ChangeNotifier {
       const <({DateTime month, int total})>[];
   int _pendingReview = 0;
 
+  static const int _pageSize = 60;
+
   // --------------------------------------------------- range list (tab 2)
 
   /// Window selected on the transactions tab. Independent of [_month] on
@@ -213,7 +215,7 @@ class TransactionStore extends ChangeNotifier {
       final List<Transaction> page = await _repo.pageInRange(
         from: w.from,
         to: w.to,
-        limit: 60,
+        limit: _pageSize,
         before: (
           occurredAtMs: last.occurredAt.millisecondsSinceEpoch,
           id: last.id,
@@ -221,7 +223,7 @@ class TransactionStore extends ChangeNotifier {
       );
       if (generation != _rangeGeneration) return;
       _rangeRows = <Transaction>[..._rangeRows, ...page];
-      _rangeHasMore = page.length == 60;
+      _rangeHasMore = page.length == _pageSize;
     } on Object {
       if (generation == _rangeGeneration) _rangeHasMore = false;
     } finally {
@@ -240,7 +242,7 @@ class TransactionStore extends ChangeNotifier {
 
     try {
       final List<Object> results = await Future.wait<Object>(<Future<Object>>[
-        _repo.pageInRange(from: w.from, to: w.to, limit: 60),
+        _repo.pageInRange(from: w.from, to: w.to, limit: _pageSize),
         _repo.totalsInRange(from: w.from, to: w.to),
         _repo.dailyExpenses(from: w.from, to: w.to),
       ]);
@@ -250,7 +252,7 @@ class TransactionStore extends ChangeNotifier {
       _rangeRows = page;
       _rangeTotals = results[1] as PeriodTotals;
       _rangeDaily = results[2] as Map<DateTime, int>;
-      _rangeHasMore = page.length == 60;
+      _rangeHasMore = page.length == _pageSize;
     } finally {
       if (generation == _rangeGeneration) {
         _rangeLoading = false;

@@ -11,7 +11,7 @@ class AppDatabase {
   static final AppDatabase instance = AppDatabase._();
 
   static const String fileName = 'mbb_money.db';
-  static const int version = 3;
+  static const int version = 4;
 
   static final Map<String, Database> _open = <String, Database>{};
 
@@ -99,6 +99,7 @@ class AppDatabase {
 
     await _createInternalTables(db);
     await _createWishlistTable(db);
+    await _createSuppressedTable(db);
     await _seedAccount(db);
   }
 
@@ -129,6 +130,20 @@ class AppDatabase {
     ''');
   }
 
+  /// References the user has permanently deleted.
+  ///
+  /// SePay pull-sync re-fetches a 3-day overlap window and de-duplicates on
+  /// `reference_number`, so a plain `DELETE` would be re-inserted on the next
+  /// sync. Keeping the reference here is the tombstone that stops that.
+  Future<void> _createSuppressedTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS suppressed_references (
+        reference_number TEXT PRIMARY KEY,
+        deleted_at       INTEGER NOT NULL
+      )
+    ''');
+  }
+
   Future<void> _upgrade(Database db, int from, int to) async {
     // Keep this exhaustive so a schema change never silently drops history.
     if (from < 1) {
@@ -143,6 +158,12 @@ class AppDatabase {
     if (from < 3) {
       // v3 adds `wishlist_items` table for shopping notes & budget planning.
       await _createWishlistTable(db);
+    }
+    if (from < 4) {
+      // v4 adds `suppressed_references`: tombstones for rows the user deleted
+      // on purpose, so the SePay overlap window cannot resurrect them.
+      // Additive only — no existing table is touched.
+      await _createSuppressedTable(db);
     }
   }
 

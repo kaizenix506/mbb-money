@@ -58,11 +58,16 @@ class TransactionDao {
 
   Future<int> insert(Transaction tx) async {
     final Database db = await _db;
+    final String? ref = tx.referenceNumber;
+    if (ref != null && ref.isNotEmpty && await _isSuppressed(db, ref)) {
+      return 0;
+    }
     return db.insert('transactions', tx.toMap());
   }
 
   /// Inserts many rows in one transaction, skipping any whose
-  /// `reference_number` already exists. Returns how many were actually added.
+  /// `reference_number` already exists **or was deleted on purpose**.
+  /// Returns how many were actually added.
   ///
   /// [ConflictAlgorithm.ignore] plus the partial unique index makes this
   /// idempotent, so re-running a SePay sync is always safe.
@@ -70,8 +75,18 @@ class TransactionDao {
     if (txs.isEmpty) return 0;
     final Database db = await _db;
     return db.transaction<int>((txn) async {
+      final Set<String> suppressed = <String>{
+        for (final Map<String, Object?> row in await txn.query(
+          'suppressed_references',
+          columns: <String>['reference_number'],
+        ))
+          if (row['reference_number'] is String)
+            row['reference_number']! as String,
+      };
       int added = 0;
       for (final Transaction tx in txs) {
+        final String? ref = tx.referenceNumber;
+        if (ref != null && suppressed.contains(ref)) continue;
         final int id = await txn.insert(
           'transactions',
           tx.toMap(),
@@ -81,6 +96,17 @@ class TransactionDao {
       }
       return added;
     });
+  }
+
+  Future<bool> _isSuppressed(Database db, String reference) async {
+    final List<Map<String, Object?>> hit = await db.query(
+      'suppressed_references',
+      columns: <String>['reference_number'],
+      where: 'reference_number = ?',
+      whereArgs: <Object?>[reference],
+      limit: 1,
+    );
+    return hit.isNotEmpty;
   }
 
   Future<void> update(Transaction tx) async {
@@ -121,6 +147,42 @@ class TransactionDao {
   Future<void> delete(int id) async {
     final Database db = await _db;
     await db.delete('transactions', where: 'id = ?', whereArgs: <Object?>[id]);
+  }
+
+  /// Deletes [tx] and, when it carries a bank reference, leaves a tombstone so
+  /// a later sync cannot bring it back.
+  ///
+  /// SePay pulls a rolling 3-day window and de-duplicates on
+  /// `reference_number`; without the tombstone the row the user deleted would
+  /// simply be re-inserted on the next sync. Both statements share one
+  /// transaction so a crash can never leave a half-applied delete.
+  Future<void> deletePermanently(Transaction tx) async {
+    final Database db = await _db;
+    final String? ref = tx.referenceNumber;
+    await db.transaction<void>((txn) async {
+      await txn.delete('transactions', where: 'id = ?', whereArgs: <Object?>[tx.id]);
+      if (ref != null && ref.isNotEmpty) {
+        await txn.insert(
+          'suppressed_references',
+          <String, Object?>{
+            'reference_number': ref,
+            'deleted_at': DateTime.now().millisecondsSinceEpoch,
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+    });
+  }
+
+  /// Every reference the user has deleted on purpose.
+  Future<Set<String>> suppressedReferences() async {
+    final Database db = await _db;
+    final List<Map<String, Object?>> rows =
+        await db.query('suppressed_references', columns: <String>['reference_number']);
+    return <String>{
+      for (final Map<String, Object?> row in rows)
+        if (row['reference_number'] is String) row['reference_number']! as String,
+    };
   }
 
   // ----------------------------------------------------------------- reads

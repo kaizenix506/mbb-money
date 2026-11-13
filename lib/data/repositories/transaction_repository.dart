@@ -1,4 +1,4 @@
-
+import '../../core/formatters.dart';
 import '../auto_categorizer.dart';
 import '../db/transaction_dao.dart';
 import '../mb_bank_parser.dart';
@@ -6,7 +6,6 @@ import '../models/account.dart';
 import '../models/category.dart';
 import '../models/transaction.dart';
 import '../models/tx_source.dart';
-import '../../core/formatters.dart';
 
 /// Outcome of a shortcut/SMS ingestion, so the UI knows what to say.
 enum IngestStatus {
@@ -189,7 +188,10 @@ class TransactionRepository {
 
   Future<void> update(Transaction tx) => _dao.update(tx);
 
-  Future<void> delete(Transaction tx) => _dao.delete(tx.id);
+  /// Removes [tx] for good. When the row came from the bank (it has a
+  /// reference) a tombstone is written too, so the next SePay sync — which
+  /// re-reads a 3-day overlap window — cannot bring it back.
+  Future<void> delete(Transaction tx) => _dao.deletePermanently(tx);
 
   // ------------------------------------------------- deep link / SMS ingest
 

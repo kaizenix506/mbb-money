@@ -12,7 +12,7 @@ Tuy nhiên, bạn có thể tạo file `.ipa` hoàn toàn **TỰ ĐỘNG & MIỄ
 ---
 
 ## CÁCH 1: Dùng GitHub Actions (Khuyến nghị — Nhanh & Tự động)
-Dự án đã được cấu hình sẵn file workflow [`.github/workflows/build_ipa.yml`](file:///c:/Users/Hoang/Documents/Local/test/.github/workflows/build_ipa.yml).
+Dự án đã được cấu hình sẵn file workflow [`.github/workflows/build_ipa.yml`](file:///c:/Users/Hoang/Documents/Local/Kho/quan_ly_chi_tieu/.github/workflows/build_ipa.yml).
 
 ### Các bước thực hiện:
 1. Đăng nhập vào [GitHub](https://github.com) và tạo 1 repository mới (Private hoặc Public).
